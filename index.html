@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi des stages — GMNF Terminale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --foret:#1f3a2e;--foret-2:#2e5742;--mousse:#6b7f3a;--argile:#c2703d;--ecorce:#5c4a33;
+    --parchemin:#f3efe4;--surface:#fcfbf6;--ligne:#e3ddcd;--texte:#26221b;--texte-doux:#766f5f;--pierre:#9a9384;
+    --r0:#9a9384;--r1:#c79a3e;--r2:#c2703d;--r3:#8a8b3a;--r4:#5e8a4a;--r5:#2e6b43;
+    --mfr:#2e6b43;--ent:#c2703d;--vac:#9a9384;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--parchemin);color:var(--texte);line-height:1.45;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 80px;}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:16px;}
+  .titre{display:flex;align-items:center;gap:14px;}
+  .leaf{flex:0 0 auto;width:42px;height:42px;}
+  h1{font-family:'Fraunces',serif;font-weight:600;font-size:29px;line-height:1.05;margin:0;color:var(--foret);letter-spacing:-.01em;}
+  .sous{font-size:13px;color:var(--texte-doux);margin-top:3px;}
+  .saved{font-size:12px;color:var(--mousse);font-weight:600;opacity:0;transition:opacity .25s;white-space:nowrap;}
+  .saved.show{opacity:1;}
+
+  /* Bannière semaine en cours */
+  .week-banner{display:flex;align-items:center;gap:14px;border-radius:14px;padding:14px 18px;margin-bottom:16px;border:1px solid var(--ligne);background:var(--surface);}
+  .wb-dot{flex:0 0 auto;width:13px;height:13px;border-radius:50%;}
+  .wb-main{font-family:'Fraunces',serif;font-weight:600;font-size:17px;color:var(--foret);}
+  .wb-sub{font-size:12.5px;color:var(--texte-doux);margin-top:1px;}
+  .week-banner.mfr{background:#eaf2ec;border-color:#c7ddcd;}
+  .week-banner.ent{background:#f7ece2;border-color:#e6cdb6;}
+  .week-banner.vac{background:#f0eee7;border-color:#ddd6c6;}
+
+  /* Onglets */
+  .tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .tab{padding:9px 16px;border-radius:10px;border:1px solid var(--ligne);background:var(--surface);font:inherit;font-weight:600;color:var(--texte-doux);cursor:pointer;}
+  .tab.on{background:var(--foret);color:#fff;border-color:var(--foret);}
+
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:8px;}
+  .stat{background:var(--surface);border:1px solid var(--ligne);border-radius:14px;padding:16px 18px;}
+  .stat .num{font-family:'Fraunces',serif;font-size:30px;font-weight:700;color:var(--foret);line-height:1;}
+  .stat .num small{font-size:16px;color:var(--texte-doux);font-weight:500;}
+  .stat .lbl{font-size:12px;color:var(--texte-doux);margin-top:6px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+  .board-wide{background:var(--surface);border:1px solid var(--ligne);border-radius:14px;padding:16px 18px;margin:14px 0 24px;}
+  .bw-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+  .bw-head .t{font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--texte-doux);}
+  .bw-head .moy{font-family:'Fraunces',serif;font-weight:700;color:var(--foret);font-size:18px;}
+  .distrib{display:flex;height:26px;border-radius:8px;overflow:hidden;border:1px solid var(--ligne);background:#fff;}
+  .distrib span{display:block;height:100%;transition:flex .4s ease;}
+  .legende{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;}
+  .legende div{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--texte-doux);}
+  .legende i{width:11px;height:11px;border-radius:3px;display:inline-block;}
+
+  .tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px;}
+  .tools input[type=text]{flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--ligne);border-radius:10px;font:inherit;background:var(--surface);}
+  .tools select{padding:10px 12px;border:1px solid var(--ligne);border-radius:10px;font:inherit;background:var(--surface);color:var(--texte);}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--mousse);outline-offset:1px;border-color:var(--mousse);}
+  .btn{padding:10px 14px;border-radius:10px;border:1px solid var(--ligne);background:var(--surface);font:inherit;font-weight:600;color:var(--ecorce);cursor:pointer;}
+  .btn:hover{background:#fff;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;}
+  .card{background:var(--surface);border:1px solid var(--ligne);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;}
+  .card-top{padding:15px 16px 12px;border-bottom:1px solid var(--ligne);}
+  .nom{font-family:'Fraunces',serif;font-weight:600;font-size:18px;color:var(--foret);line-height:1.1;}
+  .prenom{font-weight:400;color:var(--ecorce);}
+  .progline{margin-top:11px;display:flex;align-items:center;gap:10px;}
+  .bar{flex:1;height:8px;border-radius:6px;background:#ece7d8;overflow:hidden;}
+  .bar i{display:block;height:100%;border-radius:6px;transition:width .35s ease,background .25s;}
+  .pct{font-size:12px;font-weight:700;color:var(--texte-doux);min-width:34px;text-align:right;}
+  .stage-badge{display:inline-block;margin-top:9px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;color:#fff;}
+  .card-body{padding:13px 16px 16px;display:grid;gap:11px;}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--texte-doux);margin-bottom:4px;}
+  .field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit;font-size:13.5px;background:#fff;color:var(--texte);}
+  .field textarea{resize:vertical;min-height:42px;}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .visite-faite select{border-color:var(--r5);}
+  .empty{grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--texte-doux);}
+
+  /* Planning */
+  .planning-intro{font-size:13px;color:var(--texte-doux);margin-bottom:16px;max-width:760px;}
+  .pl-legend{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px;}
+  .pl-legend div{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--texte-doux);font-weight:600;}
+  .pl-legend i{width:13px;height:13px;border-radius:4px;}
+  .month{font-family:'Fraunces',serif;font-weight:600;color:var(--foret);font-size:15px;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--ligne);text-transform:capitalize;}
+  .pweek{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--ligne);border-left:5px solid var(--ligne);border-radius:10px;padding:10px 14px;margin-bottom:8px;}
+  .pweek.mfr{border-left-color:var(--mfr);}
+  .pweek.ent{border-left-color:var(--ent);}
+  .pweek.vac{border-left-color:var(--vac);background:#f4f2ea;}
+  .pweek.now{box-shadow:0 0 0 2px var(--mousse);}
+  .pw-dates{flex:1;font-size:14px;color:var(--texte);}
+  .pw-dates b{color:var(--foret);}
+  .pw-now-tag{font-size:11px;font-weight:700;color:var(--mousse);margin-left:8px;}
+  .pw-chip{font-size:12.5px;font-weight:700;padding:4px 11px;border-radius:999px;color:#fff;white-space:nowrap;}
+  .pw-chip.mfr{background:var(--mfr);}
+  .pw-chip.ent{background:var(--ent);}
+  .pw-chip.vac{background:var(--vac);}
+  .pw-note{font-size:11px;color:var(--texte-doux);margin-left:8px;font-style:italic;}
+  .pw-sel{padding:6px 8px;border:1px solid var(--ligne);border-radius:8px;font:inherit;font-size:12.5px;background:#fff;color:var(--texte);}
+
+  footer{margin-top:34px;font-size:12px;color:var(--texte-doux);text-align:center;}
+  .hidden{display:none;}
+  @media (max-width:720px){.board{grid-template-columns:repeat(2,1fr);}h1{font-size:24px;}}
+  @media print{
+    body{background:#fff;}
+    .tools,.saved,header .leaf,.tabs,.pw-sel,footer .noprint{display:none;}
+    .card,.stat,.board-wide,.pweek{break-inside:avoid;border-color:#bbb;}
+    .field input,.field select,.field textarea{border:none;padding:2px 0;background:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="titre">
+      <svg class="leaf" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M24 4C12 10 8 22 10 38c14 2 26-3 30-16C36 10 30 6 24 4Z" fill="#6b7f3a"/>
+        <path d="M14 34C20 26 28 18 38 12" stroke="#1f3a2e" stroke-width="2" stroke-linecap="round"/>
+        <path d="M19 30c3-1 6-2 8-5M24 35c2-2 4-3 7-4" stroke="#1f3a2e" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+      </svg>
+      <div>
+        <h1>Suivi des stages</h1>
+        <div class="sous">Bac Pro GMNF — Terminale 2026/2027</div>
+      </div>
+    </div>
+    <div class="saved" id="saved">✓ Enregistré</div>
+  </header>
+
+  <div class="week-banner" id="weekBanner"><div class="wb-dot"></div><div><div class="wb-main">—</div><div class="wb-sub"></div></div></div>
+
+  <div class="tabs">
+    <button class="tab on" data-view="eleves">Élèves</button>
+    <button class="tab" data-view="planning">Planning de l'alternance</button>
+  </div>
+
+  <!-- VUE ÉLÈVES -->
+  <section id="view-eleves">
+    <div class="board" id="board"></div>
+    <div class="board-wide">
+      <div class="bw-head"><span class="t">Répartition de l'avancement des rapports</span><span class="moy" id="moy">—</span></div>
+      <div class="distrib" id="distrib"></div>
+      <div class="legende" id="legende"></div>
+    </div>
+    <div class="tools">
+      <input type="text" id="search" placeholder="Rechercher un élève, une structure, une commune…">
+      <select id="filtreRapport"><option value="">Tous les rapports</option></select>
+      <select id="filtreVisite">
+        <option value="">Toutes les visites</option>
+        <option value="À planifier">Visite à planifier</option>
+        <option value="Planifiée">Visite planifiée</option>
+        <option value="Faite">Visite faite</option>
+      </select>
+      <select id="tri">
+        <option value="alpha">Tri A→Z</option>
+        <option value="avancement">Tri par avancement</option>
+        <option value="sansstructure">Sans lieu de stage d'abord</option>
+      </select>
+      <button class="btn" id="exportBtn">Exporter en CSV</button>
+      <button class="btn" id="printBtn">Imprimer</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- VUE PLANNING -->
+  <section id="view-planning" class="hidden">
+    <p class="planning-intro">Semaines <b>MFR</b> = élèves au centre. Semaines <b>Entreprise</b> = élèves sur leur lieu de stage. Toute semaine peut être reclassée d'un clic (menu à droite) — pratique pour les semaines d'été ou la semaine du Nouvel An.</p>
+    <div class="pl-legend">
+      <div><i style="background:var(--mfr)"></i>MFR (au centre)</div>
+      <div><i style="background:var(--ent)"></i>Entreprise (stage)</div>
+      <div><i style="background:var(--vac)"></i>Vacances</div>
+    </div>
+    <div id="planning"></div>
+  </section>
+
+  <footer><span class="noprint">Modifications enregistrées automatiquement. « Exporter en CSV » pour conserver une copie / l'ouvrir dans Excel.</span></footer>
+</div>
+
+<script>
+/* ---------- RAPPORT ---------- */
+const STAGES=[
+  {label:"Pas commencé",pct:0,color:"#9a9384"},
+  {label:"Plan / sommaire",pct:12,color:"#c79a3e"},
+  {label:"1ère partie à retravailler",pct:28,color:"#cf8a3a"},
+  {label:"1ère partie OK",pct:44,color:"#8a8b3a"},
+  {label:"2ème partie à retravailler",pct:58,color:"#c2703d"},
+  {label:"2ème partie OK",pct:70,color:"#5e8a4a"},
+  {label:"1ʳᵉ version complète",pct:82,color:"#4f8246"},
+  {label:"Relecture / corrections",pct:92,color:"#3a7a4a"},
+  {label:"Finalisé / rendu",pct:100,color:"#2e6b43"},
+];
+const STAGE_HEX=STAGES.map(s=>s.color);
+
+/* ---------- ÉLÈVES ---------- */
+const ROSTER=[
+  ["BARCET","Mahé"],["BOUTEILLE","Paul"],["COIN KHALFA","Mathis"],["DAILLY","Gabin"],
+  ["DI RUZZA","Louise"],["ENGELBACH","Véga"],["FALSONE","Romain"],["FUINEL","Aubin"],
+  ["GABARDO","Léna"],["GARCIA PINEL","Hugo"],["GUILLET--DAVANZO","Augustin"],
+  ["HACKER","Mathis"],["LUCAS","Alexis"],["PAQUET","Antoine"],["PETIT","Kenzo"],
+  ["RENARD","Nathan"],["SORIANO-RODRIGUEZ","Paco"],["VEYET","Clément"],
+];
+
+/* ---------- PLANNING (type: mfr | ent | vac ; extra = n° MFR / libellé vacances ; note) ---------- */
+function W(disp,s,e,type,extra,note){return {disp,s,e,type,extra:extra||"",note:note||""};}
+const PLAN_DEF=[
+  W("du 11 au 15 août","2026-08-11","2026-08-15","ent"),
+  W("du 18 au 22 août","2026-08-18","2026-08-22","ent"),
+  W("du 24 au 28 août","2026-08-24","2026-08-28","mfr","1"),
+  W("du 31 août au 5 sept.","2026-08-31","2026-09-05","mfr","2","Me V"),
+  W("du 7 au 11 sept.","2026-09-07","2026-09-11","mfr","3","V"),
+  W("du 14 au 18 sept.","2026-09-14","2026-09-18","ent"),
+  W("du 21 au 25 sept.","2026-09-21","2026-09-25","mfr","4"),
+  W("du 28 sept. au 2 oct.","2026-09-28","2026-10-02","ent"),
+  W("du 5 au 9 oct.","2026-10-05","2026-10-09","mfr","5"),
+  W("du 12 au 16 oct.","2026-10-12","2026-10-16","mfr","6"),
+  W("du 19 au 23 oct.","2026-10-19","2026-10-23","mfr","7"),
+  W("du 26 au 30 oct.","2026-10-26","2026-10-30","vac","Toussaint"),
+  W("du 2 au 6 nov.","2026-11-02","2026-11-06","ent"),
+  W("du 9 au 13 nov.","2026-11-09","2026-11-13","ent"),
+  W("du 16 au 20 nov.","2026-11-16","2026-11-20","ent"),
+  W("du 23 au 27 nov.","2026-11-23","2026-11-27","mfr","8"),
+  W("du 30 nov. au 4 déc.","2026-11-30","2026-12-04","mfr","9"),
+  W("du 7 au 11 déc.","2026-12-07","2026-12-11","mfr","10"),
+  W("du 14 au 18 déc.","2026-12-14","2026-12-18","ent"),
+  W("du 21 au 25 déc.","2026-12-21","2026-12-25","vac","Noël"),
+  W("du 28 déc. au 1ᵉʳ janv.","2026-12-28","2027-01-01","ent"),
+  W("du 4 au 8 janv.","2027-01-04","2027-01-08","mfr","11"),
+  W("du 11 au 15 janv.","2027-01-11","2027-01-15","ent"),
+  W("du 18 au 22 janv.","2027-01-18","2027-01-22","ent"),
+  W("du 25 au 29 janv.","2027-01-25","2027-01-29","mfr","12"),
+  W("du 1ᵉʳ au 5 févr.","2027-02-01","2027-02-05","mfr","13"),
+  W("du 8 au 12 févr.","2027-02-08","2027-02-12","mfr","14"),
+  W("du 15 au 19 févr.","2027-02-15","2027-02-19","ent"),
+  W("du 22 au 26 févr.","2027-02-22","2027-02-26","vac","Hiver"),
+  W("du 1ᵉʳ au 5 mars","2027-03-01","2027-03-05","ent"),
+  W("du 8 au 12 mars","2027-03-08","2027-03-12","mfr","15"),
+  W("du 15 au 19 mars","2027-03-15","2027-03-19","ent"),
+  W("du 22 au 26 mars","2027-03-22","2027-03-26","ent"),
+  W("du 29 mars au 2 avr.","2027-03-29","2027-04-02","mfr","16"),
+  W("du 5 au 9 avr.","2027-04-05","2027-04-09","ent"),
+  W("du 12 au 16 avr.","2027-04-12","2027-04-16","vac","Pâques"),
+  W("du 19 au 23 avr.","2027-04-19","2027-04-23","ent"),
+  W("du 26 au 30 avr.","2027-04-26","2027-04-30","mfr","17"),
+  W("du 3 au 7 mai","2027-05-03","2027-05-07","ent"),
+  W("du 10 au 14 mai","2027-05-10","2027-05-14","mfr","18"),
+  W("du 17 au 21 mai","2027-05-17","2027-05-21","ent"),
+  W("du 24 au 28 mai","2027-05-24","2027-05-28","mfr","19"),
+  W("du 31 mai au 4 juin","2027-05-31","2027-06-04","mfr","20"),
+  W("du 7 au 11 juin","2027-06-07","2027-06-11","ent"),
+  W("du 14 au 15 juin","2027-06-14","2027-06-15","ent"),
+  W("du 21 au 25 juin","2027-06-21","2027-06-25","ent"),
+  W("du 28 juin au 2 juil.","2027-06-28","2027-07-02","ent"),
+  W("du 5 au 9 juil.","2027-07-05","2027-07-09","ent"),
+];
+
+const KEY="gmnf:suivi-stages:v2";
+const KEY_PLAN="gmnf:planning:v1";
+let state=[], plan=[];
+
+function slug(n,p){return (n+"_"+p).toLowerCase().replace(/[^a-z0-9]+/g,"-");}
+function blank(nom,prenom){return {id:slug(nom,prenom),nom,prenom,structure:"",ville:"",tuteur:"",contact:"",periode:"",visite:"À planifier",rapport:0,notes:""};}
+function esc(t){return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+async function load(){
+  let saved=null, savedPlan=null;
+  try{const r=localStorage.getItem(KEY); if(r) saved=JSON.parse(r);}catch(e){}
+  try{const r=localStorage.getItem(KEY_PLAN); if(r) savedPlan=JSON.parse(r);}catch(e){}
+  const byId={}; if(Array.isArray(saved)) saved.forEach(s=>byId[s.id]=s);
+  state=ROSTER.map(([n,p])=>{const b=blank(n,p);return byId[b.id]?{...b,...byId[b.id]}:b;});
+  const ovr=(savedPlan&&typeof savedPlan==='object')?savedPlan:{};
+  plan=PLAN_DEF.map(w=>ovr[w.s]?{...w,type:ovr[w.s]}:({...w}));
+}
+
+let saveTimer=null;
+async function flash(){const el=document.getElementById('saved');el.classList.add('show');clearTimeout(saveTimer);saveTimer=setTimeout(()=>el.classList.remove('show'),1400);}
+async function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}flash();}
+async function savePlan(){try{const o={};plan.forEach(w=>o[w.s]=w.type);localStorage.setItem(KEY_PLAN,JSON.stringify(o));}catch(e){}flash();}
+
+/* ---------- Semaine en cours ---------- */
+function currentWeek(){
+  const t=new Date(); t.setHours(12,0,0,0);
+  for(const w of plan){const s=new Date(w.s+"T00:00:00"),e=new Date(w.e+"T23:59:59");if(t>=s&&t<=e)return {w,status:"now"};}
+  const up=plan.filter(w=>new Date(w.s+"T00:00:00")>t).sort((a,b)=>a.s<b.s?-1:1)[0];
+  if(up)return {w:up,status:"next"};
+  return {w:plan[plan.length-1],status:"past"};
+}
+const TYPE_TXT={mfr:"À la MFR",ent:"En entreprise (stage)",vac:"Vacances"};
+function renderBanner(){
+  const {w,status}=currentWeek();
+  const b=document.getElementById('weekBanner');
+  b.className="week-banner "+w.type;
+  b.querySelector('.wb-dot').style.background="var(--"+w.type+")";
+  let main = w.type==='mfr'? "À la MFR — semaine MFR "+w.extra : (w.type==='ent'? "En entreprise — vos élèves sont en stage" : "Vacances"+(w.extra?" — "+w.extra:""));
+  let sub;
+  if(status==='now') sub="Cette semaine ("+w.disp+")";
+  else if(status==='next') sub="Prochaine semaine planifiée : "+w.disp;
+  else sub="Année terminée — dernière semaine : "+w.disp;
+  b.querySelector('.wb-main').textContent=main;
+  b.querySelector('.wb-sub').textContent=sub;
+}
+
+/* ---------- ÉLÈVES rendu ---------- */
+function update(id,field,val){
+  const s=state.find(x=>x.id===id); if(!s)return;
+  s[field]= field==='rapport'? parseInt(val,10):val;
+  save(); renderBoard();
+  if(field==='rapport') renderProg(id);
+  if(field==='visite'){const w=document.querySelector('[data-vwrap="'+id+'"]');if(w)w.classList.toggle('visite-faite',val==='Faite');}
+}
+function renderProg(id){
+  const s=state.find(x=>x.id===id); if(!s)return; const st=STAGES[s.rapport];
+  const bar=document.querySelector('[data-bar="'+id+'"]'),pct=document.querySelector('[data-pct="'+id+'"]'),badge=document.querySelector('[data-badge="'+id+'"]');
+  if(bar){bar.style.width=st.pct+"%";bar.style.background=st.color;}
+  if(pct)pct.textContent=st.pct+"%";
+  if(badge){badge.textContent=st.label;badge.style.background=st.color;}
+}
+function renderBoard(){
+  const total=state.length;
+  const avecLieu=state.filter(s=>s.structure.trim()).length;
+  const visites=state.filter(s=>s.visite==='Faite').length;
+  const finalises=state.filter(s=>s.rapport===5).length;
+  document.getElementById('board').innerHTML=`
+    <div class="stat"><div class="num">${total}</div><div class="lbl">Élèves</div></div>
+    <div class="stat"><div class="num">${avecLieu}<small>/${total}</small></div><div class="lbl">Lieux de stage renseignés</div></div>
+    <div class="stat"><div class="num">${visites}<small>/${total}</small></div><div class="lbl">Visites effectuées</div></div>
+    <div class="stat"><div class="num">${finalises}<small>/${total}</small></div><div class="lbl">Rapports finalisés</div></div>`;
+  const moy=Math.round(state.reduce((a,s)=>a+STAGES[s.rapport].pct,0)/total);
+  document.getElementById('moy').textContent="Avancement moyen : "+moy+"%";
+  const counts=[0,0,0,0,0,0]; state.forEach(s=>counts[s.rapport]++);
+  document.getElementById('distrib').innerHTML=counts.map((c,i)=>c>0?`<span style="flex:${c};background:${STAGE_HEX[i]}" title="${STAGES[i].label} : ${c}"></span>`:'').join('');
+  document.getElementById('legende').innerHTML=STAGES.map((st,i)=>`<div><i style="background:${STAGE_HEX[i]}"></i>${st.label} <strong style="color:var(--texte)">(${counts[i]})</strong></div>`).join('');
+}
+function cardHTML(s){
+  const st=STAGES[s.rapport];
+  const opts=STAGES.map((x,i)=>`<option value="${i}" ${i===s.rapport?'selected':''}>${x.label}</option>`).join('');
+  const vis=["À planifier","Planifiée","Faite"].map(v=>`<option ${v===s.visite?'selected':''}>${v}</option>`).join('');
+  return `<div class="card">
+    <div class="card-top">
+      <div class="nom">${s.nom} <span class="prenom">${s.prenom}</span></div>
+      <div class="progline"><div class="bar"><i data-bar="${s.id}" style="width:${st.pct}%;background:${st.color}"></i></div><span class="pct" data-pct="${s.id}">${st.pct}%</span></div>
+      <span class="stage-badge" data-badge="${s.id}" style="background:${st.color}">${st.label}</span>
+    </div>
+    <div class="card-body">
+      <div class="field"><label>Structure d'accueil</label><input type="text" value="${esc(s.structure)}" placeholder="Entreprise / structure" oninput="update('${s.id}','structure',this.value)"></div>
+      <div class="two">
+        <div class="field"><label>Commune</label><input type="text" value="${esc(s.ville)}" oninput="update('${s.id}','ville',this.value)"></div>
+        <div class="field"><label>Période</label><input type="text" value="${esc(s.periode)}" placeholder="ex. 14–18 sept." oninput="update('${s.id}','periode',this.value)"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Maître de stage</label><input type="text" value="${esc(s.tuteur)}" oninput="update('${s.id}','tuteur',this.value)"></div>
+        <div class="field"><label>Contact (tél / mail)</label><input type="text" value="${esc(s.contact)}" oninput="update('${s.id}','contact',this.value)"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Avancement du rapport</label><select onchange="update('${s.id}','rapport',this.value)">${opts}</select></div>
+        <div class="field ${s.visite==='Faite'?'visite-faite':''}" data-vwrap="${s.id}"><label>Visite</label><select onchange="update('${s.id}','visite',this.value)">${vis}</select></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea oninput="update('${s.id}','notes',this.value)" placeholder="Remarques, points à suivre…">${esc(s.notes)}</textarea></div>
+    </div></div>`;
+}
+function renderGrid(){
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  const fr=document.getElementById('filtreRapport').value, fv=document.getElementById('filtreVisite').value, tri=document.getElementById('tri').value;
+  let list=state.filter(s=>{
+    const hay=(s.nom+" "+s.prenom+" "+s.structure+" "+s.ville).toLowerCase();
+    if(q&&!hay.includes(q))return false;
+    if(fr!==""&&String(s.rapport)!==fr)return false;
+    if(fv!==""&&s.visite!==fv)return false;
+    return true;
+  });
+  if(tri==='alpha')list.sort((a,b)=>(a.nom+a.prenom).localeCompare(b.nom+b.prenom,'fr'));
+  else if(tri==='avancement')list.sort((a,b)=>a.rapport-b.rapport||a.nom.localeCompare(b.nom,'fr'));
+  else if(tri==='sansstructure')list.sort((a,b)=>(a.structure?1:0)-(b.structure?1:0)||a.nom.localeCompare(b.nom,'fr'));
+  document.getElementById('grid').innerHTML=list.length?list.map(cardHTML).join(''):'<div class="empty">Aucun élève ne correspond à ces filtres.</div>';
+}
+
+/* ---------- PLANNING rendu ---------- */
+const MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+function setWeekType(s,val){const w=plan.find(x=>x.s===s);if(!w)return;w.type=val;savePlan();renderPlanning();renderBanner();}
+function renderPlanning(){
+  const cur=currentWeek().w.s;
+  let html="", lastM="";
+  plan.forEach(w=>{
+    const d=new Date(w.s+"T00:00:00"); const mk=MONTHS[d.getMonth()]+" "+d.getFullYear();
+    if(mk!==lastM){html+=`<div class="month">${mk}</div>`;lastM=mk;}
+    const chip = w.type==='mfr'? `MFR ${w.extra}` : (w.type==='ent'?'Entreprise':(w.extra||'Vacances'));
+    const isNow=w.s===cur;
+    const sel=`<select class="pw-sel" onchange="setWeekType('${w.s}',this.value)">
+      <option value="mfr" ${w.type==='mfr'?'selected':''}>MFR</option>
+      <option value="ent" ${w.type==='ent'?'selected':''}>Entreprise</option>
+      <option value="vac" ${w.type==='vac'?'selected':''}>Vacances</option></select>`;
+    html+=`<div class="pweek ${w.type} ${isNow?'now':''}">
+      <div class="pw-dates"><b>${w.disp}</b>${w.note?`<span class="pw-note">${w.note}</span>`:''}${isNow?'<span class="pw-now-tag">● cette semaine</span>':''}</div>
+      <span class="pw-chip ${w.type}">${chip}</span>${sel}</div>`;
+  });
+  document.getElementById('planning').innerHTML=html;
+}
+
+/* ---------- CSV / divers ---------- */
+function exportCSV(){
+  const head=["Nom","Prénom","Structure d'accueil","Commune","Période","Maître de stage","Contact","Avancement rapport","%","Visite","Notes"];
+  const rows=state.map(s=>[s.nom,s.prenom,s.structure,s.ville,s.periode,s.tuteur,s.contact,STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.notes]);
+  const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c||"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="suivi_stages_GMNF.csv";a.click();URL.revokeObjectURL(url);
+}
+function switchView(v){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===v));
+  document.getElementById('view-eleves').classList.toggle('hidden',v!=='eleves');
+  document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');
+}
+
+async function init(){
+  await load();
+  const sel=document.getElementById('filtreRapport');
+  STAGES.forEach((st,i)=>{const o=document.createElement('option');o.value=i;o.textContent=st.label;sel.appendChild(o);});
+  ['search','filtreRapport','filtreVisite','tri'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderGrid);el.addEventListener('change',renderGrid);});
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchView(t.dataset.view)));
+  document.getElementById('exportBtn').addEventListener('click',exportCSV);
+  document.getElementById('printBtn').addEventListener('click',()=>window.print());
+  renderBanner(); renderBoard(); renderGrid(); renderPlanning();
+}
+init();
+</script>
+</body>
+</html>
