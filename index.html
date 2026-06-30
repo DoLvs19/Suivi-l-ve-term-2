@@ -78,6 +78,22 @@
   .field textarea{resize:vertical;min-height:42px;}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .visite-faite select{border-color:var(--r5);}
+  .weekchecks{display:flex;flex-wrap:wrap;gap:5px;}
+  .wchk{font:inherit;font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:7px;border:1px solid var(--ligne);background:#fff;color:var(--texte-doux);cursor:pointer;transition:background .12s,border-color .12s;}
+  .wchk:hover{border-color:var(--mousse);}
+  .wchk.on{background:var(--ent);border-color:var(--ent);color:#fff;}
+  .pcount{font-weight:600;color:var(--texte-doux);text-transform:none;letter-spacing:0;}
+  .lieux-tabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:-1px;}
+  .ltab{font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px 8px 0 0;border:1px solid var(--ligne);border-bottom-color:transparent;background:#efe9da;color:var(--texte-doux);cursor:pointer;}
+  .ltab.on{background:#fff;color:var(--foret);border-color:var(--mousse);border-bottom-color:#fff;position:relative;z-index:2;}
+  .ladd{font:inherit;font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;border:1px dashed var(--mousse);background:transparent;color:var(--mousse);cursor:pointer;}
+  .ladd:hover{background:#eef2e6;}
+  .lieu-panel{border:1px solid var(--mousse);border-radius:0 10px 10px 10px;padding:12px;display:grid;gap:11px;background:#fff;margin-bottom:11px;}
+  .lieu-head{display:flex;justify-content:space-between;align-items:center;}
+  .lieu-title{font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--mousse);}
+  .ldel{font:inherit;font-size:11.5px;font-weight:600;color:#b14b2f;background:none;border:none;cursor:pointer;padding:2px 4px;}
+  .ldel:hover{text-decoration:underline;}
+  .wchk.dis{opacity:.45;cursor:not-allowed;background:#f0ede4;color:var(--pierre);border-style:dashed;}
   .empty{grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--texte-doux);}
 
   /* Planning */
@@ -106,7 +122,7 @@
   @media (max-width:720px){.board{grid-template-columns:repeat(2,1fr);}h1{font-size:24px;}}
   @media print{
     body{background:#fff;}
-    .tools,.saved,header .leaf,.tabs,.pw-sel,footer .noprint{display:none;}
+    .tools,.saved,header .leaf,.tabs,.pw-sel,.ladd,.ldel,footer .noprint{display:none;}
     .card,.stat,.board-wide,.pweek{break-inside:avoid;border-color:#bbb;}
     .field input,.field select,.field textarea{border:none;padding:2px 0;background:none;}
   }
@@ -261,14 +277,31 @@ const KEY_PLAN="gmnf:planning:v1";
 let state=[], plan=[];
 
 function slug(n,p){return (n+"_"+p).toLowerCase().replace(/[^a-z0-9]+/g,"-");}
-function blank(nom,prenom){return {id:slug(nom,prenom),nom,prenom,structure:"",ville:"",tuteur:"",contact:"",periode:"",visite:"À planifier",rapport:0,notes:""};}
+function lieuBlank(){return {structure:"",ville:"",tuteur:"",contact:"",periodes:[]};}
+function blank(nom,prenom){return {id:slug(nom,prenom),nom,prenom,lieux:[lieuBlank()],active:0,visite:"À planifier",rapport:0,notes:""};}
+function migrate(o){if(!o)return o;if(!Array.isArray(o.lieux)){o.lieux=[{structure:o.structure||"",ville:o.ville||"",tuteur:o.tuteur||"",contact:o.contact||"",periodes:Array.isArray(o.periodes)?o.periodes:[]}];}o.lieux.forEach(l=>{if(!Array.isArray(l.periodes))l.periodes=[];});if(typeof o.active!=='number')o.active=0;return o;}
+function curIdx(s){return (s.active>=0&&s.active<s.lieux.length)?s.active:0;}
+function totalPeriodes(s){return s.lieux.reduce((a,l)=>a+(l.periodes?l.periodes.length:0),0);}
+function takenByOthers(s,except){const set=new Set();s.lieux.forEach((l,i)=>{if(i!==except)(l.periodes||[]).forEach(w=>set.add(w));});return set;}
+function hasAnyStructure(s){return s.lieux.some(l=>(l.structure||"").trim());}
+function joinLieux(s,f){return s.lieux.map(l=>l[f]).filter(x=>x&&x.trim()).join(" / ");}
+const MOIS_SHORT=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+function shortLabel(w){const d=new Date(w.s+"T00:00:00");return d.getDate()+" "+MOIS_SHORT[d.getMonth()];}
+function entWeeks(){return plan.filter(w=>w.type==='ent');}
+function togglePeriode(id,idx,ws,el){const s=state.find(x=>x.id===id);if(!s)return;const L=s.lieux[idx];if(!L)return;if(!Array.isArray(L.periodes))L.periodes=[];const i=L.periodes.indexOf(ws);if(i>=0){L.periodes.splice(i,1);el.classList.remove('on');}else{L.periodes.push(ws);el.classList.add('on');}const c=el.closest('.card').querySelector('[data-pcount="'+id+'"]');if(c)c.textContent="("+totalPeriodes(s)+" sem. au total)";save();}
+function updateLieu(id,idx,field,val){const s=state.find(x=>x.id===id);if(!s||!s.lieux[idx])return;s.lieux[idx][field]=val;save();if(field==='structure'){renderBoard();const t=document.querySelector('[data-card="'+id+'"] .ltab.on');if(t)t.textContent='Lieu '+(idx+1)+(val.trim()?'':' •');}}
+function rerenderCard(id){const s=state.find(x=>x.id===id);if(!s)return;const el=document.querySelector('[data-card="'+id+'"]');if(el)el.outerHTML=cardHTML(s);}
+function switchLieu(id,i){const s=state.find(x=>x.id===id);if(!s)return;s.active=i;rerenderCard(id);}
+function addLieu(id){const s=state.find(x=>x.id===id);if(!s)return;s.lieux.push(lieuBlank());s.active=s.lieux.length-1;save();rerenderCard(id);}
+function removeLieu(id,idx){const s=state.find(x=>x.id===id);if(!s||s.lieux.length<=1)return;s.lieux.splice(idx,1);if(s.active>=s.lieux.length)s.active=s.lieux.length-1;save();renderBoard();rerenderCard(id);}
+function periodeText(s){const map={};plan.forEach(w=>map[w.s]=w.disp);return s.lieux.map((l,i)=>{const ws=(l.periodes||[]).slice().sort().map(d=>map[d]||d).join(", ");const name=(l.structure||"").trim()||("Lieu "+(i+1));return ws?name+" : "+ws:null;}).filter(Boolean).join("  |  ");}
 function esc(t){return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
 async function load(){
   let saved=null, savedPlan=null;
   try{const r=localStorage.getItem(KEY); if(r) saved=JSON.parse(r);}catch(e){}
   try{const r=localStorage.getItem(KEY_PLAN); if(r) savedPlan=JSON.parse(r);}catch(e){}
-  const byId={}; if(Array.isArray(saved)) saved.forEach(s=>byId[s.id]=s);
+  const byId={}; if(Array.isArray(saved)) saved.forEach(s=>byId[s.id]=migrate(s));
   state=ROSTER.map(([n,p])=>{const b=blank(n,p);return byId[b.id]?{...b,...byId[b.id]}:b;});
   const ovr=(savedPlan&&typeof savedPlan==='object')?savedPlan:{};
   plan=PLAN_DEF.map(w=>ovr[w.s]?{...w,type:ovr[w.s]}:({...w}));
@@ -319,7 +352,7 @@ function renderProg(id){
 }
 function renderBoard(){
   const total=state.length;
-  const avecLieu=state.filter(s=>s.structure.trim()).length;
+  const avecLieu=state.filter(s=>hasAnyStructure(s)).length;
   const visites=state.filter(s=>s.visite==='Faite').length;
   const finalises=state.filter(s=>s.rapport===5).length;
   document.getElementById('board').innerHTML=`
@@ -337,21 +370,30 @@ function cardHTML(s){
   const st=STAGES[s.rapport];
   const opts=STAGES.map((x,i)=>`<option value="${i}" ${i===s.rapport?'selected':''}>${x.label}</option>`).join('');
   const vis=["À planifier","Planifiée","Faite"].map(v=>`<option ${v===s.visite?'selected':''}>${v}</option>`).join('');
-  return `<div class="card">
+  if(!Array.isArray(s.lieux)||!s.lieux.length)s.lieux=[lieuBlank()];
+  const idx=curIdx(s); s.active=idx;
+  const L=s.lieux[idx];
+  const taken=takenByOthers(s,idx);
+  const checks=entWeeks().map(w=>{const on=(L.periodes||[]).includes(w.s);const dis=taken.has(w.s);return `<button type="button" class="wchk ${on?'on':''}${dis?' dis':''}" title="${w.disp}${dis?' — déjà coché sur un autre lieu':''}" ${dis?'disabled':''} onclick="togglePeriode('${s.id}',${idx},'${w.s}',this)">${shortLabel(w)}</button>`;}).join('');
+  const tabs=s.lieux.map((l,i)=>`<button type="button" class="ltab ${i===idx?'on':''}" onclick="switchLieu('${s.id}',${i})">Lieu ${i+1}${(l.structure||'').trim()?'':' •'}</button>`).join('');
+  return `<div class="card" data-card="${s.id}">
     <div class="card-top">
       <div class="nom">${s.nom} <span class="prenom">${s.prenom}</span></div>
       <div class="progline"><div class="bar"><i data-bar="${s.id}" style="width:${st.pct}%;background:${st.color}"></i></div><span class="pct" data-pct="${s.id}">${st.pct}%</span></div>
       <span class="stage-badge" data-badge="${s.id}" style="background:${st.color}">${st.label}</span>
     </div>
     <div class="card-body">
-      <div class="field"><label>Structure d'accueil</label><input type="text" value="${esc(s.structure)}" placeholder="Entreprise / structure" oninput="update('${s.id}','structure',this.value)"></div>
-      <div class="two">
-        <div class="field"><label>Commune</label><input type="text" value="${esc(s.ville)}" oninput="update('${s.id}','ville',this.value)"></div>
-        <div class="field"><label>Période</label><input type="text" value="${esc(s.periode)}" placeholder="ex. 14–18 sept." oninput="update('${s.id}','periode',this.value)"></div>
-      </div>
-      <div class="two">
-        <div class="field"><label>Maître de stage</label><input type="text" value="${esc(s.tuteur)}" oninput="update('${s.id}','tuteur',this.value)"></div>
-        <div class="field"><label>Contact (tél / mail)</label><input type="text" value="${esc(s.contact)}" oninput="update('${s.id}','contact',this.value)"></div>
+      <div class="lieux-tabs">${tabs}<button type="button" class="ladd" onclick="addLieu('${s.id}')">+ Lieu</button></div>
+      <div class="lieu-panel">
+        <div class="lieu-head"><span class="lieu-title">Lieu ${idx+1}</span>${s.lieux.length>1?`<button type="button" class="ldel" onclick="removeLieu('${s.id}',${idx})">✕ Supprimer</button>`:''}</div>
+        <div class="field"><label>Structure d'accueil</label><input type="text" value="${esc(L.structure)}" placeholder="Entreprise / structure" oninput="updateLieu('${s.id}',${idx},'structure',this.value)"></div>
+        <div class="two">
+          <div class="field"><label>Commune</label><input type="text" value="${esc(L.ville)}" oninput="updateLieu('${s.id}',${idx},'ville',this.value)"></div>
+          <div class="field"><label>Maître de stage</label><input type="text" value="${esc(L.tuteur)}" oninput="updateLieu('${s.id}',${idx},'tuteur',this.value)"></div>
+        </div>
+        <div class="field"><label>Contact (tél / mail)</label><input type="text" value="${esc(L.contact)}" oninput="updateLieu('${s.id}',${idx},'contact',this.value)"></div>
+        <div class="field"><label>Semaines sur ce lieu <span class="pcount" data-pcount="${s.id}">(${totalPeriodes(s)} sem. au total)</span></label>
+          <div class="weekchecks">${checks}</div></div>
       </div>
       <div class="two">
         <div class="field"><label>Avancement du rapport</label><select onchange="update('${s.id}','rapport',this.value)">${opts}</select></div>
@@ -364,7 +406,7 @@ function renderGrid(){
   const q=document.getElementById('search').value.trim().toLowerCase();
   const fr=document.getElementById('filtreRapport').value, fv=document.getElementById('filtreVisite').value, tri=document.getElementById('tri').value;
   let list=state.filter(s=>{
-    const hay=(s.nom+" "+s.prenom+" "+s.structure+" "+s.ville).toLowerCase();
+    const hay=(s.nom+" "+s.prenom+" "+s.lieux.map(l=>l.structure+" "+l.ville).join(" ")).toLowerCase();
     if(q&&!hay.includes(q))return false;
     if(fr!==""&&String(s.rapport)!==fr)return false;
     if(fv!==""&&s.visite!==fv)return false;
@@ -372,13 +414,13 @@ function renderGrid(){
   });
   if(tri==='alpha')list.sort((a,b)=>(a.nom+a.prenom).localeCompare(b.nom+b.prenom,'fr'));
   else if(tri==='avancement')list.sort((a,b)=>a.rapport-b.rapport||a.nom.localeCompare(b.nom,'fr'));
-  else if(tri==='sansstructure')list.sort((a,b)=>(a.structure?1:0)-(b.structure?1:0)||a.nom.localeCompare(b.nom,'fr'));
+  else if(tri==='sansstructure')list.sort((a,b)=>(hasAnyStructure(a)?1:0)-(hasAnyStructure(b)?1:0)||a.nom.localeCompare(b.nom,'fr'));
   document.getElementById('grid').innerHTML=list.length?list.map(cardHTML).join(''):'<div class="empty">Aucun élève ne correspond à ces filtres.</div>';
 }
 
 /* ---------- PLANNING rendu ---------- */
 const MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
-function setWeekType(s,val){const w=plan.find(x=>x.s===s);if(!w)return;w.type=val;savePlan();renderPlanning();renderBanner();}
+function setWeekType(s,val){const w=plan.find(x=>x.s===s);if(!w)return;w.type=val;savePlan();renderPlanning();renderBanner();renderGrid();}
 function renderPlanning(){
   const cur=currentWeek().w.s;
   let html="", lastM="";
@@ -400,8 +442,8 @@ function renderPlanning(){
 
 /* ---------- CSV / divers ---------- */
 function exportCSV(){
-  const head=["Nom","Prénom","Structure d'accueil","Commune","Période","Maître de stage","Contact","Avancement rapport","%","Visite","Notes"];
-  const rows=state.map(s=>[s.nom,s.prenom,s.structure,s.ville,s.periode,s.tuteur,s.contact,STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.notes]);
+  const head=["Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Avancement rapport","%","Visite","Notes"];
+  const rows=state.map(s=>[s.nom,s.prenom,joinLieux(s,'structure'),joinLieux(s,'ville'),periodeText(s),joinLieux(s,'tuteur'),joinLieux(s,'contact'),STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.notes]);
   const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c||"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
   const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="suivi_stages_GMNF.csv";a.click();URL.revokeObjectURL(url);
