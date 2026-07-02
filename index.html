@@ -315,7 +315,7 @@ const PLAN_DEF=[
 /* ====== CONFIGURATION SUPABASE — à compléter (voir mode d'emploi) ====== */
 const SUPABASE_URL      = "https://qdmayxjwuooultdbmawp.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbWF5eGp3dW9vdWx0ZGJtYXdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDMyNTAsImV4cCI6MjA5ODU3OTI1MH0.xQwop3TtfR5EAc2RHc_DelhyrAjXyKar7G-hP-0R38c";
-const TEAM_EMAIL        = "dorian.lovison@mfr-asso.fr"; // = e-mail du compte créé dans Supabase
+const TEAM_EMAIL        = "dorian.lovison@mfr.asso.fr"; // = e-mail du compte créé dans Supabase
 /* ======================================================================= */
 let state=[], plan=[];
 const SB_OK = !SUPABASE_URL.includes("VOTRE") && !SUPABASE_ANON_KEY.includes("VOTRE") && /supabase\.co/.test(SUPABASE_URL) && !!window.supabase;
@@ -541,8 +541,14 @@ async function doLogin(e){
   msg.textContent="Connexion…";
   try{
     const {error}=await SB.auth.signInWithPassword({email:TEAM_EMAIL,password:pw});
-    if(error){msg.textContent="Mot de passe incorrect.";return;}
-  }catch(err){msg.textContent="Connexion impossible — vérifiez la configuration.";return;}
+    if(error){
+      const m=(error.message||"").toLowerCase();
+      if(m.includes("not confirmed")) msg.textContent="Compte non confirme dans Supabase (Authentication > Users) : ouvrez le compte et confirmez-le, ou recreez-le en cochant Auto Confirm User.";
+      else if(m.includes("invalid")) msg.textContent="E-mail ou mot de passe incorrect. Verifiez le mot de passe du compte "+TEAM_EMAIL+".";
+      else msg.textContent="Echec : "+error.message;
+      console.warn("login error:",error); return;
+    }
+  }catch(err){msg.textContent="Connexion impossible — "+((err&&err.message)||"verifiez la configuration.");return;}
   msg.textContent=""; await boot();
 }
 async function boot(){
