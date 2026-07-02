@@ -1,6 +1,4 @@
-const SUPABASE_URL      = "https://abcdxyz.supabase.co";   // votre Project URL
-const SUPABASE_ANON_KEY = "collez ici la clé anon public";
-const TEAM_EMAIL        = "equipe.gmnf@stages.app";        // à laisser identique au compte créé<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -78,6 +76,7 @@ const TEAM_EMAIL        = "equipe.gmnf@stages.app";        // à laisser identiq
   .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--texte-doux);margin-bottom:4px;}
   .field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit;font-size:13.5px;background:#fff;color:var(--texte);}
   .field textarea{resize:vertical;min-height:42px;}
+  .field textarea.memo{min-height:58px;background:#fff;border-color:var(--mousse);}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .visite-faite select{border-color:var(--r5);}
   .weekchecks{display:flex;flex-wrap:wrap;gap:5px;}
@@ -120,17 +119,52 @@ const TEAM_EMAIL        = "equipe.gmnf@stages.app";        // à laisser identiq
   .pw-sel{padding:6px 8px;border:1px solid var(--ligne);border-radius:8px;font:inherit;font-size:12.5px;background:#fff;color:var(--texte);}
 
   footer{margin-top:34px;font-size:12px;color:var(--texte-doux);text-align:center;}
+  body:not(.authed) .wrap{display:none;}
+  .gate{position:fixed;inset:0;background:var(--parchemin);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+  .gatebox{background:var(--surface);border:1px solid var(--ligne);border-radius:16px;padding:28px;max-width:390px;width:100%;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 34px rgba(31,58,46,.10);}
+  .gtitle{font-family:'Fraunces',serif;font-weight:600;font-size:22px;color:var(--foret);}
+  .gsub{font-size:13px;color:var(--texte-doux);margin-bottom:8px;line-height:1.55;}
+  .gate label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--texte-doux);margin-top:6px;}
+  .gate input{padding:11px 12px;border:1px solid var(--ligne);border-radius:9px;font:inherit;background:#fff;}
+  .gbtn{margin-top:14px;padding:11px;border-radius:10px;border:none;background:var(--foret);color:#fff;font:inherit;font-weight:600;cursor:pointer;}
+  .gbtn:hover{background:var(--foret-2);}
+  .gmsg{font-size:12.5px;color:#b14b2f;min-height:16px;margin-top:6px;}
+  .gate code{background:#efe9da;padding:1px 5px;border-radius:4px;font-size:12px;}
+  .topright{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+  .userbar{display:flex;align-items:center;gap:8px;}
+  .who{font-size:12px;color:var(--texte-doux);font-weight:600;}
+  .ubtn{font:inherit;font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;border:1px solid var(--ligne);background:var(--surface);color:var(--ecorce);cursor:pointer;}
+  .ubtn:hover{background:#fff;}
+  .stale{position:fixed;top:0;left:0;right:0;z-index:900;display:none;background:var(--argile);color:#fff;text-align:center;padding:9px;font-size:13px;font-weight:600;cursor:pointer;}
+  .stale.show{display:block;}
   .hidden{display:none;}
   @media (max-width:720px){.board{grid-template-columns:repeat(2,1fr);}h1{font-size:24px;}}
   @media print{
     body{background:#fff;}
-    .tools,.saved,header .leaf,.tabs,.pw-sel,.ladd,.ldel,footer .noprint{display:none;}
+    .tools,.saved,.userbar,.stale,header .leaf,.tabs,.pw-sel,.ladd,.ldel,footer .noprint{display:none;}
     .card,.stat,.board-wide,.pweek{break-inside:avoid;border-color:#bbb;}
     .field input,.field select,.field textarea{border:none;padding:2px 0;background:none;}
   }
 </style>
 </head>
 <body>
+<div id="stale" class="stale">Des modifications ont été faites ailleurs — cliquer pour actualiser</div>
+<div id="login" class="gate" style="display:none">
+  <form id="loginForm" class="gatebox">
+    <div class="gtitle">Suivi des stages — GMNF</div>
+    <div class="gsub">Accès réservé à l'équipe. Entrez le mot de passe partagé.</div>
+    <label>Mot de passe d'équipe</label>
+    <input id="pw" type="password" autocomplete="current-password" required autofocus>
+    <button type="submit" class="gbtn">Entrer</button>
+    <div id="loginMsg" class="gmsg"></div>
+  </form>
+</div>
+<div id="setup" class="gate" style="display:none">
+  <div class="gatebox">
+    <div class="gtitle">Configuration à terminer</div>
+    <div class="gsub">La base de données n'est pas encore reliée. Ouvrez <b>index.html</b> et complétez, en haut du script, <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code> et <code>TEAM_EMAIL</code>, puis renvoyez le fichier en ligne. Le mode d'emploi complet est dans la discussion.</div>
+  </div>
+</div>
 <div class="wrap">
 
   <header class="top">
@@ -145,7 +179,10 @@ const TEAM_EMAIL        = "equipe.gmnf@stages.app";        // à laisser identiq
         <div class="sous">Bac Pro GMNF — Terminale 2026/2027</div>
       </div>
     </div>
-    <div class="saved" id="saved">✓ Enregistré</div>
+    <div class="topright">
+      <div class="saved" id="saved">✓ Enregistré</div>
+      <div class="userbar"><span class="who" id="whoami">Équipe GMNF</span><button class="ubtn" id="syncBtn" title="Récupérer les dernières données">↻ Synchroniser</button><button class="ubtn" id="logoutBtn">Se déconnecter</button></div>
+    </div>
   </header>
 
   <div class="week-banner" id="weekBanner"><div class="wb-dot"></div><div><div class="wb-main">—</div><div class="wb-sub"></div></div></div>
@@ -197,6 +234,7 @@ const TEAM_EMAIL        = "equipe.gmnf@stages.app";        // à laisser identiq
   <footer><span class="noprint">Modifications enregistrées automatiquement. « Exporter en CSV » pour conserver une copie / l'ouvrir dans Excel.</span></footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ---------- RAPPORT ---------- */
 const STAGES=[
@@ -274,13 +312,22 @@ const PLAN_DEF=[
   W("du 5 au 9 juil.","2027-07-05","2027-07-09","ent"),
 ];
 
-const KEY="gmnf:suivi-stages:v2";
-const KEY_PLAN="gmnf:planning:v1";
+/* ====== CONFIGURATION SUPABASE — à compléter (voir mode d'emploi) ====== */
+const SUPABASE_URL      = "https://qdmayxjwuooultdbmawp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbWF5eGp3dW9vdWx0ZGJtYXdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDMyNTAsImV4cCI6MjA5ODU3OTI1MH0.xQwop3TtfR5EAc2RHc_DelhyrAjXyKar7G-hP-0R38c";
+const TEAM_EMAIL        = "dorian.lovison@mfr-asso.fr"; // = e-mail du compte créé dans Supabase
+/* ======================================================================= */
 let state=[], plan=[];
+const SB_OK = !SUPABASE_URL.includes("VOTRE") && !SUPABASE_ANON_KEY.includes("VOTRE") && /supabase\.co/.test(SUPABASE_URL) && !!window.supabase;
+const SB = SB_OK ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+function planObj(){const o={};plan.forEach(w=>o[w.s]=w.type);return o;}
+function buildState(saved){const byId={};if(Array.isArray(saved))saved.forEach(s=>byId[s.id]=migrate(s));return ROSTER.map(([n,p])=>{const b=blank(n,p);return byId[b.id]?{...b,...byId[b.id]}:b;});}
+function buildPlan(saved){const ovr=(saved&&typeof saved==='object')?saved:{};return PLAN_DEF.map(w=>ovr[w.s]?{...w,type:ovr[w.s]}:({...w}));}
+function snapshot(){return JSON.stringify({s:state,p:planObj()});}
 
 function slug(n,p){return (n+"_"+p).toLowerCase().replace(/[^a-z0-9]+/g,"-");}
 function lieuBlank(){return {structure:"",ville:"",tuteur:"",contact:"",periodes:[]};}
-function blank(nom,prenom){return {id:slug(nom,prenom),nom,prenom,lieux:[lieuBlank()],active:0,visite:"À planifier",rapport:0,notes:""};}
+function blank(nom,prenom){return {id:slug(nom,prenom),nom,prenom,lieux:[lieuBlank()],active:0,visite:"À planifier",rapport:0,notes:"",memos:""};}
 function migrate(o){if(!o)return o;if(!Array.isArray(o.lieux)){o.lieux=[{structure:o.structure||"",ville:o.ville||"",tuteur:o.tuteur||"",contact:o.contact||"",periodes:Array.isArray(o.periodes)?o.periodes:[]}];}o.lieux.forEach(l=>{if(!Array.isArray(l.periodes))l.periodes=[];});if(typeof o.active!=='number')o.active=0;return o;}
 function curIdx(s){return (s.active>=0&&s.active<s.lieux.length)?s.active:0;}
 function totalPeriodes(s){return s.lieux.reduce((a,l)=>a+(l.periodes?l.periodes.length:0),0);}
@@ -300,19 +347,43 @@ function periodeText(s){const map={};plan.forEach(w=>map[w.s]=w.disp);return s.l
 function esc(t){return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
 async function load(){
-  let saved=null, savedPlan=null;
-  try{const r=localStorage.getItem(KEY); if(r) saved=JSON.parse(r);}catch(e){}
-  try{const r=localStorage.getItem(KEY_PLAN); if(r) savedPlan=JSON.parse(r);}catch(e){}
-  const byId={}; if(Array.isArray(saved)) saved.forEach(s=>byId[s.id]=migrate(s));
-  state=ROSTER.map(([n,p])=>{const b=blank(n,p);return byId[b.id]?{...b,...byId[b.id]}:b;});
-  const ovr=(savedPlan&&typeof savedPlan==='object')?savedPlan:{};
-  plan=PLAN_DEF.map(w=>ovr[w.s]?{...w,type:ovr[w.s]}:({...w}));
+  let st=null, pl=null;
+  try{
+    const {data,error}=await SB.from('tracker').select('key,data');
+    if(!error&&data){data.forEach(r=>{if(r.key==='students')st=r.data;if(r.key==='planning')pl=r.data;});}
+  }catch(e){}
+  state=buildState(st);
+  plan=buildPlan(pl);
 }
 
-let saveTimer=null;
-async function flash(){const el=document.getElementById('saved');el.classList.add('show');clearTimeout(saveTimer);saveTimer=setTimeout(()=>el.classList.remove('show'),1400);}
-async function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}flash();}
-async function savePlan(){try{const o={};plan.forEach(w=>o[w.s]=w.type);localStorage.setItem(KEY_PLAN,JSON.stringify(o));}catch(e){}flash();}
+let saveTimer=null, pendingSave=false;
+function flashSaved(){const el=document.getElementById('saved');if(el){el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1400);}}
+function persist(){pendingSave=true;clearTimeout(saveTimer);saveTimer=setTimeout(doSave,600);}
+async function doSave(){
+  if(!SB){pendingSave=false;return;}
+  try{const {error}=await SB.from('tracker').upsert([{key:'students',data:state},{key:'planning',data:planObj()}],{onConflict:'key'});if(error)console.warn(error);}
+  catch(e){console.warn(e);}
+  pendingSave=false; flashSaved();
+}
+function save(){persist();}
+function savePlan(){persist();}
+function isEditing(){const a=document.activeElement;return a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName);}
+function renderAll(){renderBanner();renderBoard();renderGrid();renderPlanning();}
+async function pull(force){
+  if(!SB||pendingSave)return;
+  try{
+    const {data,error}=await SB.from('tracker').select('key,data');
+    if(error||!data)return;
+    let st=null,pl=null;data.forEach(r=>{if(r.key==='students')st=r.data;if(r.key==='planning')pl=r.data;});
+    const ns=buildState(st), np=buildPlan(pl);
+    const snap=JSON.stringify({s:ns,p:(function(){const o={};np.forEach(w=>o[w.s]=w.type);return o;})()});
+    if(snap===snapshot())return;
+    if(force||!isEditing()){state=ns;plan=np;renderAll();hideStale();}
+    else{showStale();}
+  }catch(e){}
+}
+function showStale(){const b=document.getElementById('stale');if(b)b.classList.add('show');}
+function hideStale(){const b=document.getElementById('stale');if(b)b.classList.remove('show');}
 
 /* ---------- Semaine en cours ---------- */
 function currentWeek(){
@@ -402,6 +473,7 @@ function cardHTML(s){
         <div class="field ${s.visite==='Faite'?'visite-faite':''}" data-vwrap="${s.id}"><label>Visite</label><select onchange="update('${s.id}','visite',this.value)">${vis}</select></div>
       </div>
       <div class="field"><label>Notes</label><textarea oninput="update('${s.id}','notes',this.value)" placeholder="Remarques, points à suivre…">${esc(s.notes)}</textarea></div>
+      <div class="field"><label>Mémos</label><textarea class="memo" oninput="update('${s.id}','memos',this.value)" placeholder="Mémo libre…">${esc(s.memos||'')}</textarea></div>
     </div></div>`;
 }
 function renderGrid(){
@@ -444,8 +516,8 @@ function renderPlanning(){
 
 /* ---------- CSV / divers ---------- */
 function exportCSV(){
-  const head=["Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Avancement rapport","%","Visite","Notes"];
-  const rows=state.map(s=>[s.nom,s.prenom,joinLieux(s,'structure'),joinLieux(s,'ville'),periodeText(s),joinLieux(s,'tuteur'),joinLieux(s,'contact'),STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.notes]);
+  const head=["Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Avancement rapport","%","Visite","Notes","Mémos"];
+  const rows=state.map(s=>[s.nom,s.prenom,joinLieux(s,'structure'),joinLieux(s,'ville'),periodeText(s),joinLieux(s,'tuteur'),joinLieux(s,'contact'),STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.notes,s.memos||""]);
   const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c||"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
   const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="suivi_stages_GMNF.csv";a.click();URL.revokeObjectURL(url);
@@ -456,15 +528,44 @@ function switchView(v){
   document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');
 }
 
+function show(screen){
+  document.body.classList.toggle('authed',screen==='app');
+  const l=document.getElementById('login'), se=document.getElementById('setup');
+  if(l)l.style.display=screen==='login'?'flex':'none';
+  if(se)se.style.display=screen==='setup'?'flex':'none';
+}
+async function doLogin(e){
+  e.preventDefault();
+  const pw=document.getElementById('pw').value;
+  const msg=document.getElementById('loginMsg');
+  msg.textContent="Connexion…";
+  try{
+    const {error}=await SB.auth.signInWithPassword({email:TEAM_EMAIL,password:pw});
+    if(error){msg.textContent="Mot de passe incorrect.";return;}
+  }catch(err){msg.textContent="Connexion impossible — vérifiez la configuration.";return;}
+  msg.textContent=""; await boot();
+}
+async function boot(){
+  await load(); renderAll(); show('app');
+  if(window._sync)clearInterval(window._sync);
+  window._sync=setInterval(()=>pull(false),15000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull(false);});
+}
 async function init(){
-  await load();
   const sel=document.getElementById('filtreRapport');
   STAGES.forEach((st,i)=>{const o=document.createElement('option');o.value=i;o.textContent=st.label;sel.appendChild(o);});
   ['search','filtreRapport','filtreVisite','tri'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderGrid);el.addEventListener('change',renderGrid);});
   document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchView(t.dataset.view)));
   document.getElementById('exportBtn').addEventListener('click',exportCSV);
   document.getElementById('printBtn').addEventListener('click',()=>window.print());
-  renderBanner(); renderBoard(); renderGrid(); renderPlanning();
+  const sb=document.getElementById('syncBtn'); if(sb)sb.addEventListener('click',()=>pull(true));
+  const lo=document.getElementById('logoutBtn'); if(lo)lo.addEventListener('click',async()=>{if(SB)await SB.auth.signOut();location.reload();});
+  const lf=document.getElementById('loginForm'); if(lf)lf.addEventListener('submit',doLogin);
+  const stb=document.getElementById('stale'); if(stb)stb.addEventListener('click',()=>pull(true));
+  if(!SB){show('setup');return;}
+  const sess=(await SB.auth.getSession()).data.session;
+  if(!sess){show('login');return;}
+  await boot();
 }
 init();
 </script>
