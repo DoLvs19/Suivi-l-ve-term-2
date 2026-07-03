@@ -39,6 +39,9 @@
   .tabs{display:flex;gap:8px;margin-bottom:20px;}
   .tab{padding:9px 16px;border-radius:10px;border:1px solid var(--ligne);background:var(--surface);font:inherit;font-weight:600;color:var(--texte-doux);cursor:pointer;}
   .tab.on{background:var(--foret);color:#fff;border-color:var(--foret);}
+  .classe-tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .ctab{padding:8px 15px;border-radius:999px;border:1px solid var(--mousse);background:var(--surface);font:inherit;font-size:13px;font-weight:700;color:var(--mousse);cursor:pointer;}
+  .ctab.on{background:var(--mousse);color:#fff;}
 
   .board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:8px;}
   .stat{background:var(--surface);border:1px solid var(--ligne);border-radius:14px;padding:16px 18px;}
@@ -194,6 +197,10 @@
 
   <!-- VUE ÉLÈVES -->
   <section id="view-eleves">
+    <div class="classe-tabs" id="classeTabs">
+      <button type="button" class="ctab" data-classe="T1">Terminale 1</button>
+      <button type="button" class="ctab" data-classe="T2">Terminale 2</button>
+    </div>
     <div class="board" id="board"></div>
     <div class="board-wide">
       <div class="bw-head"><span class="t">Répartition de l'avancement des rapports</span><span class="moy" id="moy">—</span></div>
@@ -251,12 +258,23 @@ const STAGES=[
 const STAGE_HEX=STAGES.map(s=>s.color);
 
 /* ---------- ÉLÈVES ---------- */
-const ROSTER=[
+const ROSTER_T2=[
   ["BARCET","Mahé"],["BOUTEILLE","Paul"],["COIN KHALFA","Mathis"],["DAILLY","Gabin"],
   ["DI RUZZA","Louise"],["ENGELBACH","Véga"],["FALSONE","Romain"],["FUINEL","Aubin"],
   ["GABARDO","Léna"],["GARCIA PINEL","Hugo"],["GUILLET--DAVANZO","Augustin"],
   ["HACKER","Mathis"],["LUCAS","Alexis"],["PAQUET","Antoine"],["PETIT","Kenzo"],
   ["RENARD","Nathan"],["SORIANO-RODRIGUEZ","Paco"],["VEYET","Clément"],
+];
+const ROSTER_T1=[
+  ["BLOUIN","Elina"],["BRAS-MOREL","Oscar"],["CHABANE","Timéo"],["CHAVASSIEUX","Noé"],
+  ["DALOZ","Charlie"],["DUNIERE","Louis"],["DUPERRIER","Antoine"],["FEYEUX","Eryn"],
+  ["GIRAUD","Mehdy"],["GIRAUD","Sarah"],["GONZALES","Willy"],["LACOURT","Enzo"],
+  ["LIENHARDT","Lou-Anne"],["MARIÉ","Enzo"],["MASSET","Bastien"],["NADEAU","Pierre"],
+  ["RIVOLLET","Dorian"],["SAVARY","Gabriel"],["SOULLIAERT","Arthur"],["TARDY","Adèle"],
+];
+const ROSTER=[
+  ...ROSTER_T1.map(([n,p])=>[n,p,'T1']),
+  ...ROSTER_T2.map(([n,p])=>[n,p,'T2']),
 ];
 
 /* ---------- PLANNING (type: mfr | ent | vac ; extra = n° MFR / libellé vacances ; note) ---------- */
@@ -321,14 +339,14 @@ let state=[], plan=[];
 const SB_OK = !SUPABASE_URL.includes("VOTRE") && !SUPABASE_ANON_KEY.includes("VOTRE") && /supabase\.co/.test(SUPABASE_URL) && !!window.supabase;
 const SB = SB_OK ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 function planObj(){const o={};plan.forEach(w=>o[w.s]=w.type);return o;}
-function buildState(saved){const byId={};if(Array.isArray(saved))saved.forEach(s=>byId[s.id]=migrate(s));return ROSTER.map(([n,p])=>{const b=blank(n,p);return byId[b.id]?{...b,...byId[b.id]}:b;});}
+function buildState(saved){const byId={};if(Array.isArray(saved))saved.forEach(s=>byId[s.id]=migrate(s));return ROSTER.map(([n,p,cl])=>{const b=blank(n,p,cl);return byId[b.id]?{...b,...byId[b.id],classe:byId[b.id].classe||cl}:b;});}
 function buildPlan(saved){const ovr=(saved&&typeof saved==='object')?saved:{};return PLAN_DEF.map(w=>ovr[w.s]?{...w,type:ovr[w.s]}:({...w}));}
 function snapshot(){return JSON.stringify({s:state,p:planObj()});}
 
 function slug(n,p){return (n+"_"+p).toLowerCase().replace(/[^a-z0-9]+/g,"-");}
 function lieuBlank(){return {structure:"",ville:"",tuteur:"",contact:"",periodes:[]};}
-function blank(nom,prenom){return {id:slug(nom,prenom),nom,prenom,lieux:[lieuBlank()],active:0,visite:"À planifier",rapport:0,notes:"",memos:""};}
-function migrate(o){if(!o)return o;if(!Array.isArray(o.lieux)){o.lieux=[{structure:o.structure||"",ville:o.ville||"",tuteur:o.tuteur||"",contact:o.contact||"",periodes:Array.isArray(o.periodes)?o.periodes:[]}];}o.lieux.forEach(l=>{if(!Array.isArray(l.periodes))l.periodes=[];});if(typeof o.active!=='number')o.active=0;return o;}
+function blank(nom,prenom,classe){return {id:slug(nom,prenom),nom,prenom,classe:classe||"T2",lieux:[lieuBlank()],active:0,visite:"À planifier",rapport:0,memos:""};}
+function migrate(o){if(!o)return o;if(!Array.isArray(o.lieux)){o.lieux=[{structure:o.structure||"",ville:o.ville||"",tuteur:o.tuteur||"",contact:o.contact||"",periodes:Array.isArray(o.periodes)?o.periodes:[]}];}o.lieux.forEach(l=>{if(!Array.isArray(l.periodes))l.periodes=[];});if(typeof o.active!=='number')o.active=0;if(!o.classe)o.classe='T2';return o;}
 function curIdx(s){return (s.active>=0&&s.active<s.lieux.length)?s.active:0;}
 function totalPeriodes(s){return s.lieux.reduce((a,l)=>a+(l.periodes?l.periodes.length:0),0);}
 function takenByOthers(s,except){const set=new Set();s.lieux.forEach((l,i)=>{if(i!==except)(l.periodes||[]).forEach(w=>set.add(w));});return set;}
@@ -368,7 +386,7 @@ async function doSave(){
 function save(){persist();}
 function savePlan(){persist();}
 function isEditing(){const a=document.activeElement;return a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName);}
-function renderAll(){renderBanner();renderBoard();renderGrid();renderPlanning();}
+function renderAll(){renderBanner();document.querySelectorAll('.ctab').forEach(b=>b.classList.toggle('on',b.dataset.classe===currentClasse));renderBoard();renderGrid();renderPlanning();}
 async function pull(force){
   if(!SB||pendingSave)return;
   try{
@@ -424,18 +442,19 @@ function renderProg(id){
   if(badge){badge.textContent=st.label;badge.style.background=st.color;}
 }
 function renderBoard(){
-  const total=state.length;
-  const avecLieu=state.filter(s=>hasAnyStructure(s)).length;
-  const visites=state.filter(s=>s.visite==='Faite').length;
-  const finalises=state.filter(s=>s.rapport===5).length;
+  const cs=classeState();
+  const total=cs.length;
+  const avecLieu=cs.filter(s=>hasAnyStructure(s)).length;
+  const visites=cs.filter(s=>s.visite==='Faite').length;
+  const finalises=cs.filter(s=>s.rapport===5).length;
   document.getElementById('board').innerHTML=`
     <div class="stat"><div class="num">${total}</div><div class="lbl">Élèves</div></div>
     <div class="stat"><div class="num">${avecLieu}<small>/${total}</small></div><div class="lbl">Lieux de stage renseignés</div></div>
     <div class="stat"><div class="num">${visites}<small>/${total}</small></div><div class="lbl">Visites effectuées</div></div>
     <div class="stat"><div class="num">${finalises}<small>/${total}</small></div><div class="lbl">Rapports finalisés</div></div>`;
-  const moy=Math.round(state.reduce((a,s)=>a+STAGES[s.rapport].pct,0)/total);
+  const moy=total?Math.round(cs.reduce((a,s)=>a+STAGES[s.rapport].pct,0)/total):0;
   document.getElementById('moy').textContent="Avancement moyen : "+moy+"%";
-  const counts=[0,0,0,0,0,0]; state.forEach(s=>counts[s.rapport]++);
+  const counts=[0,0,0,0,0,0]; cs.forEach(s=>counts[s.rapport]++);
   document.getElementById('distrib').innerHTML=counts.map((c,i)=>c>0?`<span style="flex:${c};background:${STAGE_HEX[i]}" title="${STAGES[i].label} : ${c}"></span>`:'').join('');
   document.getElementById('legende').innerHTML=STAGES.map((st,i)=>`<div><i style="background:${STAGE_HEX[i]}"></i>${st.label} <strong style="color:var(--texte)">(${counts[i]})</strong></div>`).join('');
 }
@@ -472,14 +491,20 @@ function cardHTML(s){
         <div class="field"><label>Avancement du rapport</label><select onchange="update('${s.id}','rapport',this.value)">${opts}</select></div>
         <div class="field ${s.visite==='Faite'?'visite-faite':''}" data-vwrap="${s.id}"><label>Visite</label><select onchange="update('${s.id}','visite',this.value)">${vis}</select></div>
       </div>
-      <div class="field"><label>Notes</label><textarea oninput="update('${s.id}','notes',this.value)" placeholder="Remarques, points à suivre…">${esc(s.notes)}</textarea></div>
       <div class="field"><label>Mémos</label><textarea class="memo" oninput="update('${s.id}','memos',this.value)" placeholder="Mémo libre…">${esc(s.memos||'')}</textarea></div>
     </div></div>`;
+}
+let currentClasse='T2';
+function classeState(){return state.filter(s=>s.classe===currentClasse);}
+function switchClasse(cl){
+  currentClasse=cl;
+  document.querySelectorAll('.ctab').forEach(b=>b.classList.toggle('on',b.dataset.classe===cl));
+  renderBoard(); renderGrid();
 }
 function renderGrid(){
   const q=document.getElementById('search').value.trim().toLowerCase();
   const fr=document.getElementById('filtreRapport').value, fv=document.getElementById('filtreVisite').value, tri=document.getElementById('tri').value;
-  let list=state.filter(s=>{
+  let list=classeState().filter(s=>{
     const hay=(s.nom+" "+s.prenom+" "+s.lieux.map(l=>l.structure+" "+l.ville).join(" ")).toLowerCase();
     if(q&&!hay.includes(q))return false;
     if(fr!==""&&String(s.rapport)!==fr)return false;
@@ -516,11 +541,11 @@ function renderPlanning(){
 
 /* ---------- CSV / divers ---------- */
 function exportCSV(){
-  const head=["Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Avancement rapport","%","Visite","Notes","Mémos"];
-  const rows=state.map(s=>[s.nom,s.prenom,joinLieux(s,'structure'),joinLieux(s,'ville'),periodeText(s),joinLieux(s,'tuteur'),joinLieux(s,'contact'),STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.notes,s.memos||""]);
+  const head=["Classe","Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Avancement rapport","%","Visite","Mémos"];
+  const rows=classeState().map(s=>[currentClasse==='T1'?'Terminale 1':'Terminale 2',s.nom,s.prenom,joinLieux(s,'structure'),joinLieux(s,'ville'),periodeText(s),joinLieux(s,'tuteur'),joinLieux(s,'contact'),STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.memos||""]);
   const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c||"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
   const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="suivi_stages_GMNF.csv";a.click();URL.revokeObjectURL(url);
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="suivi_stages_"+(currentClasse==='T1'?'Terminale1':'Terminale2')+".csv";a.click();URL.revokeObjectURL(url);
 }
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===v));
@@ -562,6 +587,7 @@ async function init(){
   STAGES.forEach((st,i)=>{const o=document.createElement('option');o.value=i;o.textContent=st.label;sel.appendChild(o);});
   ['search','filtreRapport','filtreVisite','tri'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderGrid);el.addEventListener('change',renderGrid);});
   document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchView(t.dataset.view)));
+  document.querySelectorAll('.ctab').forEach(b=>b.addEventListener('click',()=>switchClasse(b.dataset.classe)));
   document.getElementById('exportBtn').addEventListener('click',exportCSV);
   document.getElementById('printBtn').addEventListener('click',()=>window.print());
   const sb=document.getElementById('syncBtn'); if(sb)sb.addEventListener('click',()=>pull(true));
