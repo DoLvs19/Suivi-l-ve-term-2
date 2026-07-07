@@ -140,6 +140,16 @@
   .ubtn:hover{background:#fff;}
   .stale{position:fixed;top:0;left:0;right:0;z-index:900;display:none;background:var(--argile);color:#fff;text-align:center;padding:9px;font-size:13px;font-weight:600;cursor:pointer;}
   .stale.show{display:block;}
+  .carte-tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .carte-tools select{padding:9px 12px;border:1px solid var(--ligne);border-radius:10px;font:inherit;background:var(--surface);color:var(--texte);}
+  .carte-status{font-size:12.5px;color:var(--texte-doux);align-self:center;}
+  .carte-legend{display:flex;gap:18px;margin-bottom:12px;}
+  .carte-legend div{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--texte-doux);font-weight:600;}
+  .carte-legend i{width:13px;height:13px;border-radius:50%;display:inline-block;}
+  .map-box{width:100%;height:520px;border-radius:14px;border:1px solid var(--ligne);overflow:hidden;background:#eef0e8;}
+  .carte-missing{margin-top:12px;font-size:13px;color:var(--texte-doux);}
+  .map-pop{font-family:'Inter',system-ui,sans-serif;font-size:13px;line-height:1.5;}
+  .map-pop b{font-family:'Fraunces',serif;color:var(--foret);font-size:14.5px;}
   .hidden{display:none;}
   @media (max-width:720px){.board{grid-template-columns:repeat(2,1fr);}h1{font-size:24px;}}
   @media print{
@@ -149,6 +159,7 @@
     .field input,.field select,.field textarea{border:none;padding:2px 0;background:none;}
   }
 </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 </head>
 <body>
 <div id="stale" class="stale">Des modifications ont été faites ailleurs — cliquer pour actualiser</div>
@@ -192,6 +203,7 @@
 
   <div class="tabs">
     <button class="tab on" data-view="eleves">Élèves</button>
+    <button class="tab" data-view="carte">Carte des stages</button>
     <button class="tab" data-view="planning">Planning de l'alternance</button>
   </div>
 
@@ -227,6 +239,26 @@
     <div class="grid" id="grid"></div>
   </section>
 
+  <!-- VUE CARTE -->
+  <section id="view-carte" class="hidden">
+    <p class="planning-intro">Repérez en un coup d'œil où se trouvent vos élèves en stage, pour organiser vos visites. Choisissez une période : les lieux de stage de cette semaine s'affichent sur la carte.</p>
+    <div class="carte-tools">
+      <select id="carteClasse">
+        <option value="toutes">Toutes les classes</option>
+        <option value="T1">Terminale 1</option>
+        <option value="T2">Terminale 2</option>
+      </select>
+      <select id="cartePeriode"></select>
+      <span class="carte-status" id="carteStatus"></span>
+    </div>
+    <div class="carte-legend">
+      <div><i style="background:var(--argile)"></i>Terminale 1</div>
+      <div><i style="background:var(--foret-2)"></i>Terminale 2</div>
+    </div>
+    <div id="map" class="map-box"></div>
+    <div id="carteMissing" class="carte-missing"></div>
+  </section>
+
   <!-- VUE PLANNING -->
   <section id="view-planning" class="hidden">
     <p class="planning-intro">Semaines <b>MFR</b> = élèves au centre. Semaines <b>Entreprise</b> = élèves sur leur lieu de stage. Toute semaine peut être reclassée d'un clic (menu à droite) — pratique pour les semaines d'été ou la semaine du Nouvel An.</p>
@@ -241,6 +273,7 @@
   <footer><span class="noprint">Modifications enregistrées automatiquement. « Exporter en CSV » pour conserver une copie / l'ouvrir dans Excel.</span></footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ---------- RAPPORT ---------- */
@@ -539,6 +572,98 @@ function renderPlanning(){
   document.getElementById('planning').innerHTML=html;
 }
 
+/* ---------- CARTE DES STAGES ---------- */
+const GEOCACHE_KEY='gmnf:geocode-cache:v1';
+let geoCache={};
+try{geoCache=JSON.parse(localStorage.getItem(GEOCACHE_KEY)||'{}');}catch(e){geoCache={};}
+let mapInstance=null, mapMarkers=[];
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function geocode(ville){
+  const key=ville.trim().toLowerCase();
+  if(!key)return null;
+  if(geoCache[key])return geoCache[key];
+  try{
+    const q=encodeURIComponent(key+", France");
+    const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=fr&q="+q);
+    const d=await r.json();
+    if(d&&d[0]){
+      const pt=[parseFloat(d[0].lat),parseFloat(d[0].lon)];
+      geoCache[key]=pt;
+      try{localStorage.setItem(GEOCACHE_KEY,JSON.stringify(geoCache));}catch(e){}
+      return pt;
+    }
+  }catch(e){}
+  return null;
+}
+function fillCartePeriodes(){
+  const sel=document.getElementById('cartePeriode');
+  if(sel.dataset.built)return;
+  sel.innerHTML='<option value="toutes">Toutes les semaines de stage</option>'+
+    entWeeks().map(w=>`<option value="${w.s}">${w.disp}</option>`).join('');
+  const cur=currentWeek().w;
+  const target = cur.type==='ent' ? cur.s : ((entWeeks().find(w=>w.s>=cur.s)||{}).s);
+  if(target) sel.value=target;
+  sel.dataset.built='1';
+}
+async function renderCarte(){
+  if(typeof L==='undefined'){
+    document.getElementById('carteStatus').textContent="La carte n'a pas pu se charger (bibliothèque indisponible).";
+    return;
+  }
+  fillCartePeriodes();
+  const classeSel=document.getElementById('carteClasse').value;
+  const periodeSel=document.getElementById('cartePeriode').value;
+  const status=document.getElementById('carteStatus');
+  const missingBox=document.getElementById('carteMissing');
+
+  if(!mapInstance){
+    mapInstance=L.map('map',{scrollWheelZoom:true}).setView([45.9,4.5],9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'&copy; OpenStreetMap contributors', maxZoom:18
+    }).addTo(mapInstance);
+  }
+  mapMarkers.forEach(m=>mapInstance.removeLayer(m)); mapMarkers=[];
+
+  const targets=[];
+  state.forEach(s=>{
+    if(classeSel!=='toutes' && s.classe!==classeSel) return;
+    (s.lieux||[]).forEach((l,li)=>{
+      const ville=(l.ville||'').trim();
+      if(!ville) return;
+      const weeks=l.periodes||[];
+      let match=false, matchedWeeks=weeks;
+      if(periodeSel==='toutes'){ match = weeks.length>0; }
+      else { match = weeks.includes(periodeSel); matchedWeeks=weeks.filter(w=>w===periodeSel); }
+      if(match) targets.push({s,l,li,ville,matchedWeeks});
+    });
+  });
+
+  status.textContent = "Repérage de "+targets.length+" lieu(x)…";
+  const pts=[]; const missing=[]; const jitterMap={};
+  for(const t of targets){
+    const key=t.ville.trim().toLowerCase();
+    const cached=!!geoCache[key];
+    const pt=await geocode(t.ville);
+    if(!cached && pt) await sleep(350);
+    if(!pt){ missing.push(t); continue; }
+    const jk=pt[0].toFixed(3)+','+pt[1].toFixed(3);
+    jitterMap[jk]=(jitterMap[jk]||0)+1;
+    const n=jitterMap[jk];
+    const jlat = pt[0] + (n>1? (Math.cos(n*2.4)*0.006) : 0);
+    const jlng = pt[1] + (n>1? (Math.sin(n*2.4)*0.006) : 0);
+    const color = t.s.classe==='T1' ? '#c2703d' : '#2e5742';
+    const marker=L.circleMarker([jlat,jlng],{radius:9,color:'#fff',weight:2,fillColor:color,fillOpacity:0.95}).addTo(mapInstance);
+    const semTxt = t.matchedWeeks.map(ws=>{const w=plan.find(x=>x.s===ws);return w?w.disp:ws;}).join(', ')||'—';
+    marker.bindPopup(`<div class="map-pop"><b>${esc(t.s.nom)} ${esc(t.s.prenom)}</b><br>${t.s.classe==='T1'?'Terminale 1':'Terminale 2'}${t.s.lieux.length>1?' — Lieu '+(t.li+1):''}<br>${esc(t.l.structure)||'<i>Structure non renseignée</i>'}<br>${esc(t.ville)}${t.l.tuteur?'<br>Maître de stage : '+esc(t.l.tuteur):''}${t.l.contact?'<br>'+esc(t.l.contact):''}<br><span style="color:#766f5f">${semTxt}</span></div>`);
+    mapMarkers.push(marker);
+    pts.push([jlat,jlng]);
+  }
+  if(pts.length){ mapInstance.fitBounds(pts,{padding:[36,36]}); }
+  status.textContent = pts.length+" lieu(x) affiché(s)"+(missing.length?(" — "+missing.length+" non localisé(s) (commune manquante ou introuvable)"):"");
+  missingBox.innerHTML = missing.length? "<b>Non localisés :</b> "+missing.map(t=>esc(t.s.nom+" "+t.s.prenom)+" ("+esc(t.ville||'commune manquante')+")").join(', ') : "";
+  setTimeout(()=>{ if(mapInstance) mapInstance.invalidateSize(); },60);
+}
+
 /* ---------- CSV / divers ---------- */
 function exportCSV(){
   const head=["Classe","Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Avancement rapport","%","Visite","Mémos"];
@@ -550,7 +675,9 @@ function exportCSV(){
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===v));
   document.getElementById('view-eleves').classList.toggle('hidden',v!=='eleves');
+  document.getElementById('view-carte').classList.toggle('hidden',v!=='carte');
   document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');
+  if(v==='carte') renderCarte();
 }
 
 function show(screen){
@@ -594,6 +721,8 @@ async function init(){
   const lo=document.getElementById('logoutBtn'); if(lo)lo.addEventListener('click',async()=>{if(SB)await SB.auth.signOut();location.reload();});
   const lf=document.getElementById('loginForm'); if(lf)lf.addEventListener('submit',doLogin);
   const stb=document.getElementById('stale'); if(stb)stb.addEventListener('click',()=>pull(true));
+  const cc=document.getElementById('carteClasse'); if(cc)cc.addEventListener('change',renderCarte);
+  const cp=document.getElementById('cartePeriode'); if(cp)cp.addEventListener('change',renderCarte);
   if(!SB){show('setup');return;}
   const sess=(await SB.auth.getSession()).data.session;
   if(!sess){show('login');return;}
