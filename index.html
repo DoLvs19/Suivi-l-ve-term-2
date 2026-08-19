@@ -98,6 +98,9 @@
   .ldel{font:inherit;font-size:11.5px;font-weight:600;color:#b14b2f;background:none;border:none;cursor:pointer;padding:2px 4px;}
   .ldel:hover{text-decoration:underline;}
   .wchk.dis{opacity:.45;cursor:not-allowed;background:#f0ede4;color:var(--pierre);border-style:dashed;}
+  .conv-row{display:flex;gap:16px;flex-wrap:wrap;}
+  .conv-check{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--texte);cursor:pointer;}
+  .conv-check input{width:16px;height:16px;accent-color:var(--mousse);cursor:pointer;}
   .empty{grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--texte-doux);}
 
   /* Planning */
@@ -377,9 +380,9 @@ function buildPlan(saved){const ovr=(saved&&typeof saved==='object')?saved:{};re
 function snapshot(){return JSON.stringify({s:state,p:planObj()});}
 
 function slug(n,p){return (n+"_"+p).toLowerCase().replace(/[^a-z0-9]+/g,"-");}
-function lieuBlank(){return {structure:"",ville:"",tuteur:"",contact:"",periodes:[]};}
+function lieuBlank(){return {structure:"",ville:"",tuteur:"",contact:"",periodes:[],convEleve:false,convTuteur:false};}
 function blank(nom,prenom,classe){return {id:slug(nom,prenom),nom,prenom,classe:classe||"T2",lieux:[lieuBlank()],active:0,visite:"À planifier",rapport:0,memos:""};}
-function migrate(o){if(!o)return o;if(!Array.isArray(o.lieux)){o.lieux=[{structure:o.structure||"",ville:o.ville||"",tuteur:o.tuteur||"",contact:o.contact||"",periodes:Array.isArray(o.periodes)?o.periodes:[]}];}o.lieux.forEach(l=>{if(!Array.isArray(l.periodes))l.periodes=[];});if(typeof o.active!=='number')o.active=0;if(!o.classe)o.classe='T2';return o;}
+function migrate(o){if(!o)return o;if(!Array.isArray(o.lieux)){o.lieux=[{structure:o.structure||"",ville:o.ville||"",tuteur:o.tuteur||"",contact:o.contact||"",periodes:Array.isArray(o.periodes)?o.periodes:[]}];}o.lieux.forEach(l=>{if(!Array.isArray(l.periodes))l.periodes=[];if(typeof l.convEleve!=="boolean")l.convEleve=false;if(typeof l.convTuteur!=="boolean")l.convTuteur=false;});if(typeof o.active!=='number')o.active=0;if(!o.classe)o.classe='T2';return o;}
 function curIdx(s){return (s.active>=0&&s.active<s.lieux.length)?s.active:0;}
 function totalPeriodes(s){return s.lieux.reduce((a,l)=>a+(l.periodes?l.periodes.length:0),0);}
 function takenByOthers(s,except){const set=new Set();s.lieux.forEach((l,i)=>{if(i!==except)(l.periodes||[]).forEach(w=>set.add(w));});return set;}
@@ -390,6 +393,7 @@ function shortLabel(w){const d=new Date(w.s+"T00:00:00");return d.getDate()+" "+
 function entWeeks(){return plan.filter(w=>w.type==='ent');}
 function togglePeriode(id,idx,ws,el){const s=state.find(x=>x.id===id);if(!s)return;const L=s.lieux[idx];if(!L)return;if(!Array.isArray(L.periodes))L.periodes=[];const i=L.periodes.indexOf(ws);if(i>=0){L.periodes.splice(i,1);el.classList.remove('on');}else{L.periodes.push(ws);el.classList.add('on');}const c=el.closest('.card').querySelector('[data-pcount="'+id+'"]');if(c)c.textContent="("+totalPeriodes(s)+" sem. au total)";save();}
 function updateLieu(id,idx,field,val){const s=state.find(x=>x.id===id);if(!s||!s.lieux[idx])return;s.lieux[idx][field]=val;save();if(field==='structure'){renderBoard();const t=document.querySelector('[data-card="'+id+'"] .ltab.on');if(t)t.textContent='Lieu '+(idx+1)+(val.trim()?'':' •');}}
+function updateLieuBool(id,idx,field,val){const s=state.find(x=>x.id===id);if(!s||!s.lieux[idx])return;s.lieux[idx][field]=val;save();}
 function rerenderCard(id){const s=state.find(x=>x.id===id);if(!s)return;const el=document.querySelector('[data-card="'+id+'"]');if(el)el.outerHTML=cardHTML(s);}
 function switchLieu(id,i){const s=state.find(x=>x.id===id);if(!s)return;s.active=i;rerenderCard(id);}
 function addLieu(id){const s=state.find(x=>x.id===id);if(!s)return;s.lieux.push(lieuBlank());s.active=s.lieux.length-1;save();rerenderCard(id);}
@@ -519,6 +523,11 @@ function cardHTML(s){
         <div class="field"><label>Contact (tél / mail)</label><input type="text" value="${esc(L.contact)}" oninput="updateLieu('${s.id}',${idx},'contact',this.value)"></div>
         <div class="field"><label>Semaines sur ce lieu <span class="pcount" data-pcount="${s.id}">(${totalPeriodes(s)} sem. au total)</span></label>
           <div class="weekchecks">${checks}</div></div>
+        <div class="field"><label>Convention</label>
+          <div class="conv-row">
+            <label class="conv-check"><input type="checkbox" ${L.convEleve?'checked':''} onchange="updateLieuBool('${s.id}',${idx},'convEleve',this.checked)"> Donnée à l'élève</label>
+            <label class="conv-check"><input type="checkbox" ${L.convTuteur?'checked':''} onchange="updateLieuBool('${s.id}',${idx},'convTuteur',this.checked)"> Donnée au tuteur</label>
+          </div></div>
       </div>
       <div class="two">
         <div class="field"><label>Avancement du rapport</label><select onchange="update('${s.id}','rapport',this.value)">${opts}</select></div>
@@ -666,8 +675,8 @@ async function renderCarte(){
 
 /* ---------- CSV / divers ---------- */
 function exportCSV(){
-  const head=["Classe","Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Avancement rapport","%","Visite","Mémos"];
-  const rows=classeState().map(s=>[currentClasse==='T1'?'Terminale 1':'Terminale 2',s.nom,s.prenom,joinLieux(s,'structure'),joinLieux(s,'ville'),periodeText(s),joinLieux(s,'tuteur'),joinLieux(s,'contact'),STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.memos||""]);
+  const head=["Classe","Nom","Prénom","Structure d'accueil","Commune","Périodes de stage","Maître de stage","Contact","Convention élève","Convention tuteur","Avancement rapport","%","Visite","Mémos"];
+  const rows=classeState().map(s=>[currentClasse==='T1'?'Terminale 1':'Terminale 2',s.nom,s.prenom,joinLieux(s,'structure'),joinLieux(s,'ville'),periodeText(s),joinLieux(s,'tuteur'),joinLieux(s,'contact'),s.lieux.some(l=>l.convEleve)?'Oui':'Non',s.lieux.some(l=>l.convTuteur)?'Oui':'Non',STAGES[s.rapport].label,STAGES[s.rapport].pct,s.visite,s.memos||""]);
   const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c||"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
   const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="suivi_stages_"+(currentClasse==='T1'?'Terminale1':'Terminale2')+".csv";a.click();URL.revokeObjectURL(url);
