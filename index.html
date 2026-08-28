@@ -296,17 +296,17 @@ const STAGE_HEX=STAGES.map(s=>s.color);
 /* ---------- ÉLÈVES ---------- */
 const ROSTER_T2=[
   ["BARCET","Mahé"],["BOUTEILLE","Paul"],["COIN KHALFA","Mathis"],["DAILLY","Gabin"],
-  ["DI RUZZA","Louise"],["ENGELBACH","Véga"],["FALSONE","Romain"],["FUINEL","Aubin"],
-  ["GABARDO","Léna"],["GARCIA PINEL","Hugo"],["GUILLET--DAVANZO","Augustin"],
-  ["HACKER","Mathis"],["LUCAS","Alexis"],["PAQUET","Antoine"],["PETIT","Kenzo"],
-  ["RENARD","Nathan"],["SORIANO-RODRIGUEZ","Paco"],["VEYET","Clément"],
+  ["DI RUZZA","Louise"],["FALSONE","Romain"],["FUINEL","Aubin"],["GABARDO","Léna"],
+  ["GARCIA PINEL","Hugo"],["GONZALES","Willy"],["GUILLET--DAVANZO","Augustin"],
+  ["HACKER","Mathis"],["LACOURT","Enzo"],["LUCAS","Alexis"],["MASSET","Bastien"],
+  ["PAQUET","Antoine"],["PETIT","Kenzo"],["VEYET","Clément"],
 ];
 const ROSTER_T1=[
   ["BLOUIN","Elina"],["BRAS-MOREL","Oscar"],["CHABANE","Timéo"],["CHAVASSIEUX","Noé"],
-  ["DALOZ","Charlie"],["DUNIERE","Louis"],["DUPERRIER","Antoine"],["FEYEUX","Eryn"],
-  ["GIRAUD","Mehdy"],["GIRAUD","Sarah"],["GONZALES","Willy"],["LACOURT","Enzo"],
-  ["LIENHARDT","Lou-Anne"],["MARIÉ","Enzo"],["MASSET","Bastien"],["NADEAU","Pierre"],
-  ["RIVOLLET","Dorian"],["SAVARY","Gabriel"],["SOULLIAERT","Arthur"],["TARDY","Adèle"],
+  ["DALOZ","Charlie"],["DUNIERE","Louis"],["DUPERRIER","Antoine"],["ENGELBACH","Véga"],
+  ["FEYEUX","Eryn"],["GIRAUD","Mehdy"],["GIRAUD","Sarah"],["MARIÉ","Enzo"],
+  ["NADEAU","Pierre"],["RIVOLLET","Dorian"],["SAVARY","Gabriel"],["SORIANO-RODRIGUEZ","Paco"],
+  ["SOULLIAERT","Arthur"],["TARDY","Adèle"],
 ];
 const ROSTER=[
   ...ROSTER_T1.map(([n,p])=>[n,p,'T1']),
@@ -375,7 +375,7 @@ let state=[], plan=[];
 const SB_OK = !SUPABASE_URL.includes("VOTRE") && !SUPABASE_ANON_KEY.includes("VOTRE") && /supabase\.co/.test(SUPABASE_URL) && !!window.supabase;
 const SB = SB_OK ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 function planObj(){const o={};plan.forEach(w=>o[w.s]=w.type);return o;}
-function buildState(saved){const byId={};if(Array.isArray(saved))saved.forEach(s=>byId[s.id]=migrate(s));return ROSTER.map(([n,p,cl])=>{const b=blank(n,p,cl);return byId[b.id]?{...b,...byId[b.id],classe:byId[b.id].classe||cl}:b;});}
+function buildState(saved){const byId={};if(Array.isArray(saved))saved.forEach(s=>byId[s.id]=migrate(s));return ROSTER.map(([n,p,cl])=>{const b=blank(n,p,cl);return byId[b.id]?{...b,...byId[b.id],classe:cl}:b;});}
 function buildPlan(saved){const ovr=(saved&&typeof saved==='object')?saved:{};return PLAN_DEF.map(w=>ovr[w.s]?{...w,type:ovr[w.s]}:({...w}));}
 function snapshot(){return JSON.stringify({s:state,p:planObj()});}
 
