@@ -36,7 +36,7 @@
   .week-banner.vac{background:#f0eee7;border-color:#ddd6c6;}
 
   /* Onglets */
-  .tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
   .tab{padding:9px 16px;border-radius:10px;border:1px solid var(--ligne);background:var(--surface);font:inherit;font-weight:600;color:var(--texte-doux);cursor:pointer;}
   .tab.on{background:var(--foret);color:#fff;border-color:var(--foret);}
   .classe-tabs{display:flex;gap:8px;margin-bottom:16px;}
@@ -153,12 +153,27 @@
   .carte-missing{margin-top:12px;font-size:13px;color:var(--texte-doux);}
   .map-pop{font-family:'Inter',system-ui,sans-serif;font-size:13px;line-height:1.5;}
   .map-pop b{font-family:'Fraunces',serif;color:var(--foret);font-size:14.5px;}
+
+  /* Visites */
+  .vis-params{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;background:var(--surface);border:1px solid var(--ligne);border-radius:12px;padding:12px 14px;}
+  .vis-params label{display:flex;flex-direction:column;gap:4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--texte-doux);}
+  .vis-params input,.vis-params select{padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit;font-size:13.5px;width:120px;background:#fff;color:var(--texte);}
+  .vis-note{font-size:12.5px;color:var(--texte-doux);margin:8px 0 14px;max-width:900px;}
+  .vis-h{font-family:'Fraunces',serif;font-weight:600;color:var(--foret);font-size:19px;margin:26px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--ligne);}
+  .vis-tour{background:var(--surface);border:1px solid var(--ligne);border-radius:12px;margin-bottom:12px;overflow:hidden;}
+  .vis-tour h4{margin:0;padding:10px 14px;background:#eaf2ec;font-family:'Fraunces',serif;font-weight:600;color:var(--foret);font-size:15px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+  .vis-tour h4 span{font-family:'Inter',system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--texte-doux);}
+  table.vt{width:100%;border-collapse:collapse;font-size:13px;}
+  table.vt th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--texte-doux);padding:8px 12px;border-bottom:1px solid var(--ligne);background:#faf8f1;}
+  table.vt td{padding:8px 12px;border-bottom:1px solid #efeadc;vertical-align:top;}
+  table.vt tr:last-child td{border-bottom:none;}
+  .vis-app{background:#f7ece2;}
   .hidden{display:none;}
   @media (max-width:720px){.board{grid-template-columns:repeat(2,1fr);}h1{font-size:24px;}}
   @media print{
     body{background:#fff;}
-    .tools,.saved,.userbar,.stale,header .leaf,.tabs,.pw-sel,.ladd,.ldel,footer .noprint{display:none;}
-    .card,.stat,.board-wide,.pweek{break-inside:avoid;border-color:#bbb;}
+    .tools,.saved,.userbar,.stale,header .leaf,.tabs,.pw-sel,.ladd,.ldel,.vis-params,footer .noprint{display:none;}
+    .card,.stat,.board-wide,.pweek,.vis-tour{break-inside:avoid;border-color:#bbb;}
     .field input,.field select,.field textarea{border:none;padding:2px 0;background:none;}
   }
 </style>
@@ -207,6 +222,7 @@
   <div class="tabs">
     <button class="tab on" data-view="eleves">Élèves</button>
     <button class="tab" data-view="carte">Carte des stages</button>
+    <button class="tab" data-view="visites">Visites</button>
     <button class="tab" data-view="planning">Planning de l'alternance</button>
   </div>
 
@@ -260,6 +276,29 @@
     </div>
     <div id="map" class="map-box"></div>
     <div id="carteMissing" class="carte-missing"></div>
+  </section>
+
+  <!-- VUE VISITES -->
+  <section id="view-visites" class="hidden">
+    <p class="planning-intro">Proposition de visites de stage entre le <b>9 et le 20 novembre</b> puis du <b>14 au 18 décembre</b>, regroupées par secteur géographique (une tournée = une journée au départ d'Anse). Quand le stage est trop loin ou que l'élève n'a pas assez de semaines sur place, c'est un <b>appel</b>.</p>
+    <div class="vis-params">
+      <label>Appel si trajet &gt; (min)<input type="number" id="vSeuil" value="90" min="10" step="5"></label>
+      <label>Semaines déjà faites (min)<input type="number" id="vMinSem" value="2" min="0" step="1"></label>
+      <label>Regrouper dans un rayon (min)<input type="number" id="vRayon" value="30" min="5" step="5"></label>
+      <label>Max visites / tournée<input type="number" id="vMax" value="4" min="1" step="1"></label>
+      <label>Classe
+        <select id="vClasse">
+          <option value="toutes">Toutes</option>
+          <option value="T1">Terminale 1</option>
+          <option value="T2">Terminale 2</option>
+        </select>
+      </label>
+      <button class="btn" id="vCalc">Calculer</button>
+      <button class="btn" id="vCsv">Exporter en CSV</button>
+      <button class="btn" id="vPrint">Imprimer</button>
+    </div>
+    <div class="carte-status" id="vStatus">Cliquez sur « Calculer » pour générer la proposition à partir des lieux et des semaines saisis dans les fiches élèves.</div>
+    <div id="vResult"></div>
   </section>
 
   <!-- VUE PLANNING -->
@@ -673,6 +712,161 @@ async function renderCarte(){
   setTimeout(()=>{ if(mapInstance) mapInstance.invalidateSize(); },60);
 }
 
+/* ---------- VISITES DE STAGE ---------- */
+const ANSE=[45.9356,4.7236];
+const VIS_FENETRES=[["2026-11-09","2026-11-20"],["2026-12-14","2026-12-18"]];
+let visLast=null;
+function visWeeks(){return entWeeks().filter(w=>VIS_FENETRES.some(f=>w.s>=f[0]&&w.s<=f[1]));}
+function hav(a,b){const R=6371,r=Math.PI/180;const dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;const x=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+function estSec(a,b){return hav(a,b)*1.35/65*3600;}
+async function matriceTrajets(pts){
+  try{
+    const coords=pts.map(p=>p[1]+','+p[0]).join(';');
+    const r=await fetch('https://router.project-osrm.org/table/v1/driving/'+coords+'?annotations=duration');
+    const d=await r.json();
+    if(d&&d.code==='Ok'&&Array.isArray(d.durations)){
+      return {M:d.durations.map((row,i)=>row.map((v,j)=>v==null?estSec(pts[i],pts[j]):v)),approx:false};
+    }
+  }catch(e){}
+  return {M:pts.map(a=>pts.map(b=>estSec(a,b))),approx:true};
+}
+function fmtMin(m){m=Math.round(m);const h=Math.floor(m/60),r=m%60;return h?(h+"h"+String(r).padStart(2,'0')):(r+" min");}
+function ordonnerTournee(list,M){
+  const rest=list.slice(), out=[]; let cur=0, total=0;
+  while(rest.length){
+    let bi=0,bv=Infinity;
+    rest.forEach((o,i)=>{const v=M[cur][o.gi];if(v<bv){bv=v;bi=i;}});
+    const o=rest.splice(bi,1)[0];
+    o.leg=Math.round(bv/60); total+=bv; cur=o.gi; out.push(o);
+  }
+  total+=M[cur][0];
+  return {items:out,total:Math.round(total/60)};
+}
+function construireTournees(list,M,rayon,max){
+  const rest=list.slice().sort((a,b)=>b.min-a.min), tours=[];
+  while(rest.length){
+    const seed=rest.shift(); const t=[seed];
+    const cand=rest.filter(o=>M[seed.gi][o.gi]/60<=rayon).sort((a,b)=>M[seed.gi][a.gi]-M[seed.gi][b.gi]);
+    for(const c of cand){ if(t.length>=max)break; t.push(c); rest.splice(rest.indexOf(c),1); }
+    tours.push(ordonnerTournee(t,M));
+  }
+  return tours.sort((a,b)=>b.items[0].min-a.items[0].min);
+}
+async function calcVisites(){
+  const status=document.getElementById('vStatus'), out=document.getElementById('vResult');
+  if(typeof state==='undefined'||!state.length){status.textContent="Données non chargées.";return;}
+  const seuil=parseInt(document.getElementById('vSeuil').value,10)||90;
+  const minSem=parseInt(document.getElementById('vMinSem').value,10); const minS=isNaN(minSem)?2:minSem;
+  const rayon=parseInt(document.getElementById('vRayon').value,10)||30;
+  const max=Math.max(1,parseInt(document.getElementById('vMax').value,10)||4);
+  const cl=document.getElementById('vClasse').value;
+  const vw=visWeeks();
+  out.innerHTML=''; status.textContent="Préparation des lieux de stage…";
+
+  const items=[], aRenseigner=[];
+  state.forEach(s=>{
+    if(cl!=='toutes'&&s.classe!==cl)return;
+    if(s.visite==='Faite')return;
+    let any=false;
+    s.lieux.forEach((l,li)=>{
+      const ville=(l.ville||'').trim(), struct=(l.structure||'').trim(), per=(l.periodes||[]).slice().sort();
+      if(!ville&&!struct&&!per.length)return;
+      any=true;
+      items.push({s,l,li,ville,struct,periodes:per});
+    });
+    if(!any)aRenseigner.push({s,raison:"Aucun lieu de stage renseigné"});
+  });
+
+  const villes=[...new Set(items.filter(i=>i.ville).map(i=>i.ville.toLowerCase()))];
+  const locs={};
+  for(let k=0;k<villes.length;k++){
+    status.textContent="Repérage des communes ("+(k+1)+"/"+villes.length+")…";
+    const cached=!!geoCache[villes[k]];
+    const pt=await geocode(villes[k]);
+    if(!cached&&pt)await sleep(350);
+    if(pt)locs[villes[k]]=pt;
+  }
+  const keys=Object.keys(locs); const idx={}; keys.forEach((k,i)=>idx[k]=i+1);
+  status.textContent="Calcul des temps de trajet depuis Anse…";
+  const pts=[ANSE,...keys.map(k=>locs[k])];
+  const {M,approx}=await matriceTrajets(pts);
+
+  items.forEach(it=>{
+    if(!it.ville){it.cat='info';it.raison='Commune non renseignée';return;}
+    const gi=idx[it.ville.toLowerCase()];
+    if(gi==null){it.cat='info';it.raison='Commune introuvable sur la carte';return;}
+    it.gi=gi; it.min=Math.round(M[0][gi]/60);
+    if(it.min>seuil){it.cat='appel';it.raison="Trajet d'environ "+fmtMin(it.min)+" (> "+fmtMin(seuil)+")";return;}
+    const inWin=vw.filter(w=>it.periodes.includes(w.s));
+    if(!inWin.length){it.cat='appel';it.raison=it.periodes.length?"Pas sur ce lieu pendant les créneaux de visite":"Semaines de stage non renseignées";return;}
+    const elig=inWin.filter(w=>it.periodes.filter(p=>p<w.s).length>=minS);
+    if(!elig.length){it.cat='appel';it.raison="Moins de "+minS+" semaine(s) faite(s) avant la visite";return;}
+    it.cat='visite'; it.elig=elig;
+  });
+
+  const vis=items.filter(i=>i.cat==='visite').sort((a,b)=>a.elig.length-b.elig.length||b.min-a.min);
+  const byWeek={}; vw.forEach(w=>byWeek[w.s]=[]);
+  vis.forEach(it=>{
+    let best=null,bs=Infinity;
+    it.elig.forEach(w=>{
+      const g=byWeek[w.s];
+      const near=g.some(o=>M[o.gi][it.gi]/60<=rayon);
+      const score=(near?0:1000)+g.length;
+      if(score<bs){bs=score;best=w;}
+    });
+    it.week=best; it.faites=it.periodes.filter(p=>p<best.s).length; byWeek[best.s].push(it);
+  });
+
+  const weeksOut=[];
+  vw.forEach(w=>{
+    const list=byWeek[w.s]; if(!list.length)return;
+    weeksOut.push({w,tours:construireTournees(list,M,rayon,max)});
+  });
+  const appels=items.filter(i=>i.cat==='appel').sort((a,b)=>(a.s.nom+a.s.prenom).localeCompare(b.s.nom+b.s.prenom,'fr'));
+  const infos=items.filter(i=>i.cat==='info');
+  visLast={weeksOut,appels,infos,aRenseigner,approx};
+
+  const nbV=vis.length, nbT=weeksOut.reduce((a,x)=>a+x.tours.length,0);
+  let html=`<div class="board">
+    <div class="stat"><div class="num">${nbV}</div><div class="lbl">Visites proposées</div></div>
+    <div class="stat"><div class="num">${nbT}</div><div class="lbl">Tournées (journées)</div></div>
+    <div class="stat"><div class="num">${appels.length}</div><div class="lbl">Appels</div></div>
+    <div class="stat"><div class="num">${infos.length+aRenseigner.length}</div><div class="lbl">À renseigner</div></div></div>`;
+  html+=`<p class="vis-note">${approx?'<b>Attention :</b> le service d\'itinéraires n\'a pas répondu, les temps sont des estimations à vol d\'oiseau (×1,35 à 65 km/h). ':'Temps de trajet routiers (OpenStreetMap / OSRM), départ et retour à Anse. '}Une visite n'est proposée que si l'élève a déjà fait au moins ${minS} semaine(s) sur ce lieu <i>avant</i> la semaine de visite. Les élèves dont la visite est « Faite » sont exclus.</p>`;
+  weeksOut.forEach(wo=>{
+    html+=`<div class="vis-h">Visites — ${esc(wo.w.disp)}</div>`;
+    wo.tours.forEach((t,ti)=>{
+      html+=`<div class="vis-tour"><h4>Tournée ${ti+1} — ${t.items.length} visite${t.items.length>1?'s':''}<span>≈ ${fmtMin(t.total)} de route (aller-retour Anse)</span></h4>
+      <table class="vt"><thead><tr><th>#</th><th>Élève</th><th>Classe</th><th>Structure</th><th>Commune</th><th>Trajet depuis l'étape précédente</th><th>Sem. déjà faites</th></tr></thead><tbody>`+
+      t.items.map((it,k)=>`<tr><td>${k+1}</td><td><b>${esc(it.s.nom)}</b> ${esc(it.s.prenom)}</td><td>${it.s.classe==='T1'?'Term. 1':'Term. 2'}</td><td>${esc(it.struct)||'<i>—</i>'}</td><td>${esc(it.ville)}</td><td>${k===0?'Anse → ':''}${fmtMin(it.leg)}</td><td>${it.faites}</td></tr>`).join('')+
+      `</tbody></table></div>`;
+    });
+  });
+  if(!weeksOut.length)html+=`<div class="vis-h">Visites</div><p class="vis-note">Aucune visite possible avec les paramètres actuels.</p>`;
+  html+=`<div class="vis-h">Appels à passer (${appels.length})</div>`;
+  html+=appels.length?`<div class="vis-tour"><table class="vt"><thead><tr><th>Élève</th><th>Classe</th><th>Structure</th><th>Commune</th><th>Depuis Anse</th><th>Raison</th></tr></thead><tbody>`+
+    appels.map(it=>`<tr><td><b>${esc(it.s.nom)}</b> ${esc(it.s.prenom)}</td><td>${it.s.classe==='T1'?'Term. 1':'Term. 2'}</td><td>${esc(it.struct)||'<i>—</i>'}</td><td>${esc(it.ville)}</td><td>${fmtMin(it.min)}</td><td>${esc(it.raison)}</td></tr>`).join('')+`</tbody></table></div>`:`<p class="vis-note">Aucun appel.</p>`;
+  const manque=[...infos.map(it=>({s:it.s,raison:it.raison+(it.struct?' ('+it.struct+')':'')})),...aRenseigner];
+  if(manque.length){
+    html+=`<div class="vis-h">À renseigner (${manque.length})</div><div class="vis-tour"><table class="vt"><thead><tr><th>Élève</th><th>Classe</th><th>Problème</th></tr></thead><tbody>`+
+    manque.map(m=>`<tr><td><b>${esc(m.s.nom)}</b> ${esc(m.s.prenom)}</td><td>${m.s.classe==='T1'?'Term. 1':'Term. 2'}</td><td>${esc(m.raison)}</td></tr>`).join('')+`</tbody></table></div>`;
+  }
+  out.innerHTML=html;
+  status.textContent="Proposition calculée — modifiable via les paramètres ci-dessus.";
+}
+function exportVisitesCSV(){
+  if(!visLast){document.getElementById('vStatus').textContent="Calculez d'abord la proposition.";return;}
+  const head=["Type","Semaine","Tournée","Ordre","Nom","Prénom","Classe","Structure","Commune","Trajet depuis Anse (min)","Détail"];
+  const rows=[];
+  visLast.weeksOut.forEach(wo=>wo.tours.forEach((t,ti)=>t.items.forEach((it,k)=>rows.push(["Visite",wo.w.disp,ti+1,k+1,it.s.nom,it.s.prenom,it.s.classe,it.struct,it.ville,it.min,it.faites+" sem. déjà faites"]))));
+  visLast.appels.forEach(it=>rows.push(["Appel","","","",it.s.nom,it.s.prenom,it.s.classe,it.struct,it.ville,it.min,it.raison]));
+  visLast.infos.forEach(it=>rows.push(["À renseigner","","","",it.s.nom,it.s.prenom,it.s.classe,it.struct,it.ville,"",it.raison]));
+  visLast.aRenseigner.forEach(m=>rows.push(["À renseigner","","","",m.s.nom,m.s.prenom,m.s.classe,"","","",m.raison]));
+  const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c==null?"":c).replace(/"/g,'""')+'"').join(";")).join("\r\n");
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download="visites_stages.csv";a.click();URL.revokeObjectURL(url);
+}
+
 /* ---------- CSV / divers ---------- */
 function exportCSV(){
   const head=["Nom","Prénom","Structure d'accueil","Commune","Maître de stage","Contact"];
@@ -685,6 +879,7 @@ function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===v));
   document.getElementById('view-eleves').classList.toggle('hidden',v!=='eleves');
   document.getElementById('view-carte').classList.toggle('hidden',v!=='carte');
+  document.getElementById('view-visites').classList.toggle('hidden',v!=='visites');
   document.getElementById('view-planning').classList.toggle('hidden',v!=='planning');
   if(v==='carte') renderCarte();
 }
@@ -732,6 +927,9 @@ async function init(){
   const stb=document.getElementById('stale'); if(stb)stb.addEventListener('click',()=>pull(true));
   const cc=document.getElementById('carteClasse'); if(cc)cc.addEventListener('change',renderCarte);
   const cp=document.getElementById('cartePeriode'); if(cp)cp.addEventListener('change',renderCarte);
+  const vc=document.getElementById('vCalc'); if(vc)vc.addEventListener('click',calcVisites);
+  const vv=document.getElementById('vCsv'); if(vv)vv.addEventListener('click',exportVisitesCSV);
+  const vp=document.getElementById('vPrint'); if(vp)vp.addEventListener('click',()=>window.print());
   if(!SB){show('setup');return;}
   const sess=(await SB.auth.getSession()).data.session;
   if(!sess){show('login');return;}
